@@ -1,6 +1,6 @@
 ﻿#region License
 /* 
- * Copyright (C) 1999-2016 John Källén.
+ * Copyright (C) 1999-2017 John Källén.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -33,7 +33,7 @@ namespace Reko.Arch.X86
     /// Serializes and deserializes procedure signatures.
     /// </summary>
     /// <remarks>
-    /// This code is aware of the different calling convetions on 
+    /// This code is aware of the different calling conventions on 
     /// x86 processors. Should your ABI be different, you need to
     /// make the Platform that loaded the binary return an object
     /// that derives from this class.
@@ -53,7 +53,11 @@ namespace Reko.Arch.X86
             if (d == null || d.Length == 0)
                 d = DefaultConvention;
             sig.StackDelta = Architecture.PointerType.Size;  //$BUG: far/near pointers?
-            if (d == "stdapi" || d == "__stdcall" || d == "pascal")
+            if (d == "stdapi" ||
+                d == "stdcall" ||
+                d == "__stdcall" ||
+                d == "__thiscall" ||
+                d == "pascal")
                 sig.StackDelta += StackOffset;
             sig.FpuStackDelta = FpuStackOffset;
             sig.ReturnAddressOnStack = Architecture.PointerType.Size;   //$BUG: x86 real mode?
@@ -167,6 +171,12 @@ namespace Reko.Arch.X86
         {
             if (bitSize == 0)
                 bitSize = Architecture.WordWidth.BitSize;
+            var sPrim = sArg.Type as PrimitiveType_v1;
+            if (sPrim != null && sPrim.Domain == Domain.Real)
+            {
+                ++this.FpuStackOffset;
+                return new FpuStackStorage(0, PrimitiveType.Create(Domain.Real, bitSize / 8));
+            }
             switch (bitSize)
             {
             case 32: 

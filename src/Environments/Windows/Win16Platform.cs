@@ -1,6 +1,6 @@
 ﻿#region License
 /* 
- * Copyright (C) 1999-2016 John Källén.
+ * Copyright (C) 1999-2017 John Källén.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -50,6 +50,18 @@ namespace Reko.Environments.Windows
             return new HashSet<RegisterStorage>
             {
                 Registers.ss, Registers.ds, Registers.sp
+            };
+        }
+
+        public override HashSet<RegisterStorage> CreateTrashedRegisters()
+        {
+            return new HashSet<RegisterStorage>
+            {
+                Registers.ax,
+                Registers.cx,
+                Registers.dx,
+                Registers.bx,
+                Registers.sp,
             };
         }
 

@@ -1,6 +1,6 @@
 ﻿#region License
 /* 
- * Copyright (C) 1999-2016 John Källén.
+ * Copyright (C) 1999-2017 John Källén.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -77,9 +77,14 @@ namespace Reko.Arch.Vax
                     if (!TryDecodeOperand(Width(format[i++]), out op))
                         return null;
                     break;
-                case 'r':
                 case 'w':
                 case 'm':
+                    if (!TryDecodeOperand(Width(format[i++]), out op))
+                        return null;
+                    if (op is ImmediateOperand)
+                        op = null;    // Can't modify a constant! 
+                    break;
+                case 'r':
                 case 'v':
                     if (!TryDecodeOperand(Width(format[i++]), out op))
                         return null;
@@ -92,8 +97,8 @@ namespace Reko.Arch.Vax
                     break;
                 default:
                     throw new NotImplementedException(
-               string.Format(
-                   "Access type {0} not implemented.", format[i - 1]));
+                        string.Format(
+                            "Access type {0} not implemented.", format[i - 1]));
                 }
                 if (op == null)
                 {

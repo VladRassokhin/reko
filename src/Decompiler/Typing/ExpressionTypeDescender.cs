@@ -1,6 +1,6 @@
 ﻿#region License
 /* 
- * Copyright (C) 1999-2016 John Källén.
+ * Copyright (C) 1999-2017 John Källén.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -380,9 +380,9 @@ namespace Reko.Typing
                     return PrimitiveType.Create(Domain.Integer, dtDiff.Size);
                 throw new NotImplementedException(string.Format("Not handling {0} and {1} yet", dtDiff, dtMin));
             }
-            if (dtDiff is MemberPointer || ptDiff != null && ptDiff.Domain == Domain.Pointer)
+            if (dtDiff is MemberPointer || ptDiff != null && ptDiff.Domain == Domain.Offset)
             {
-                if (dtMin is MemberPointer || ptMin != null && ptMin.Domain == Domain.Pointer)
+                if (dtMin is MemberPointer || ptMin != null && ptMin.Domain == Domain.Offset)
                     return PrimitiveType.Create(Domain.Integer, dtDiff.Size);
                 throw new NotImplementedException(string.Format("Not handling {0} and {1} yet", dtDiff, dtMin));
             }
@@ -462,7 +462,6 @@ namespace Reko.Typing
 
         public bool VisitIdentifier(Identifier id, TypeVariable tv)
         {
-            MeetDataType(id, tv.DataType);
             return false;
         }
 
@@ -743,10 +742,6 @@ namespace Reko.Typing
 
         public bool VisitUnaryExpression(UnaryExpression unary, TypeVariable tv)
         {
-            if (unary.Operator == Operator.AddrOf)
-            {
-                MeetDataType(unary, factory.CreatePointer(unary.Expression.DataType, unary.DataType.Size));
-            }
             unary.Expression.Accept(this, unary.Expression.TypeVariable);
             return false;
         }

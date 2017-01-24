@@ -1,6 +1,6 @@
 #region License
 /* 
- * Copyright (C) 1999-2016 John Källén.
+ * Copyright (C) 1999-2017 John Källén.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -179,7 +179,7 @@ namespace Reko.Gui.Windows.Forms
             this.chkDecompile.Name = "chkDecompile";
             this.chkDecompile.Size = new System.Drawing.Size(102, 17);
             this.chkDecompile.TabIndex = 7;
-            this.chkDecompile.Text = "Decompile body";
+            this.chkDecompile.Text = "Decompile body of this procedure";
             this.chkDecompile.UseVisualStyleBackColor = true;
             // 
             // chkMalloc

@@ -1,6 +1,6 @@
 #region License
 /* 
- * Copyright (C) 1999-2016 John Källén.
+ * Copyright (C) 1999-2017 John Källén.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -48,6 +48,7 @@ namespace Reko.UnitTests.Core.Serialization
         private IProcessorArchitecture arch;
         private IPlatform platform;
         private IConfigurationService cfgSvc;
+        private DecompilerEventListener listener;
 
         [SetUp]
         public void Setup()
@@ -55,6 +56,7 @@ namespace Reko.UnitTests.Core.Serialization
             this.mr = new MockRepository();
             this.mockFactory = new MockFactory(mr);
             this.cfgSvc = mr.Stub<IConfigurationService>();
+            this.listener = mr.Stub<DecompilerEventListener>();
             this.sc = new ServiceContainer();
             sc.AddService<IFileSystemService>(new FileSystemServiceImpl('/'));
             sc.AddService<IConfigurationService>(cfgSvc);
@@ -202,6 +204,7 @@ namespace Reko.UnitTests.Core.Serialization
                         IntermediateFilename = "foo.cod",
                         User = new UserData
                         {
+                            Loader = "CustomLoader",
                             Procedures =
                             {
                                 {
@@ -290,7 +293,7 @@ namespace Reko.UnitTests.Core.Serialization
                 FilteringXmlWriter writer = new FilteringXmlWriter(fut.TextWriter);
                 writer.Formatting = System.Xml.Formatting.Indented;
                 XmlSerializer ser = SerializedLibrary.CreateSerializer_v4(typeof(Project_v4));
-                Project_v4 ud = new ProjectSaver(sc).Save("/var/foo/foo.proj", project);
+                Project_v4 ud = new ProjectSaver(sc).Serialize("/var/foo/foo.proj", project);
                 ser.Serialize(writer, ud);
                 fut.AssertFilesEqual();
             }
@@ -331,7 +334,7 @@ namespace Reko.UnitTests.Core.Serialization
             };
             mr.ReplayAll();
 
-            var ps = new ProjectLoader(sc, loader);
+            var ps = new ProjectLoader(sc, loader, listener);
             var project = ps.LoadProject("project.dcproj", sProject);
             Assert.AreEqual(2, project.Programs.Count);
             var input0 = project.Programs[0];
@@ -361,6 +364,7 @@ namespace Reko.UnitTests.Core.Serialization
             loader.Stub(l => l.LoadExecutable(
                 Arg<string>.Matches(s => s.EndsWith(exeName)),
                 Arg<byte[]>.Is.NotNull,
+                Arg<string>.Is.Null,
                 Arg<Address>.Is.Null)).Return(program);
         }
 
@@ -383,6 +387,7 @@ namespace Reko.UnitTests.Core.Serialization
             loader.Stub(l => l.LoadExecutable(
                 Arg<string>.Matches(s => s.EndsWith(exeName)),
                 Arg<byte[]>.Is.NotNull,
+                Arg<string>.Is.Null,
                 Arg<Address>.Is.Null)).Return(program);
         }
 
@@ -426,7 +431,7 @@ namespace Reko.UnitTests.Core.Serialization
             mr.ReplayAll();
 
             var ps = new ProjectSaver(sc);
-            ps.Save("c:\\test\\foo.project", project);
+            ps.Serialize("c:\\test\\foo.project", project);
             Assert.AreEqual(1, project.MetadataFiles.Count);
             Assert.AreEqual("c:\\test\\foo.def", project.MetadataFiles[0].Filename);
             Assert.AreEqual("foo.def", project.MetadataFiles[0].ModuleName);
@@ -452,7 +457,7 @@ namespace Reko.UnitTests.Core.Serialization
             sc.AddService<IOracleService>(oracle);
             mr.ReplayAll();
 
-            var ploader = new ProjectLoader(sc, loader);
+            var ploader = new ProjectLoader(sc, loader, listener);
             var project = ploader.LoadProject("c:\\bar\\bar.dcproj", sProject);
             Assert.AreEqual(1, project.MetadataFiles.Count);
             Assert.AreEqual("c:\\tmp\\foo.def", project.MetadataFiles[0].Filename);
@@ -500,7 +505,7 @@ namespace Reko.UnitTests.Core.Serialization
             loader.Stub(l => l.LoadImageBytes(null, 0))
                 .IgnoreArguments()
                 .Return(new byte[10]);
-            loader.Stub(l => l.LoadExecutable(null, null, null))
+            loader.Stub(l => l.LoadExecutable(null, null, null, null))
                 .IgnoreArguments()
                 .Return(new Program
                 {
@@ -508,7 +513,7 @@ namespace Reko.UnitTests.Core.Serialization
                 });
             mr.ReplayAll();
 
-            var ploader = new ProjectLoader(sc, loader);
+            var ploader = new ProjectLoader(sc, loader, listener);
             var project = ploader.LoadProject("c:\\tmp\\foo\\bar.proj", sProject);
             Assert.IsTrue(project.Programs[0].User.Heuristics.Contains("HeuristicScanning"));
             Assert.AreEqual("windows-1251", project.Programs[0].User.TextEncoding.WebName);

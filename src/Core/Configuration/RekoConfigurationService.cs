@@ -1,6 +1,6 @@
 #region License
 /* 
- * Copyright (C) 1999-2016 John Källén.
+ * Copyright (C) 1999-2017 John Källén.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -130,6 +130,7 @@ namespace Reko.Core.Configuration
                 Heuristics = env.Heuristics,
                 TypeLibraries = LoadCollection(env.TypeLibraries, LoadTypeLibraryReference),
                 CharacteristicsLibraries = LoadCollection(env.Characteristics, LoadTypeLibraryReference),
+                Architectures = LoadCollection(env.Architectures, LoadPlatformArchitecture),
                 Options = env.Options != null
                     ? XmlOptions.LoadIntoDictionary(env.Options
                         .SelectMany(o => o.ChildNodes.OfType<XmlElement>())
@@ -159,6 +160,25 @@ namespace Reko.Core.Configuration
             };
         }
 
+        /// <summary>
+        /// Loads processor-specific settings for a particular 
+        /// platform.
+        /// </summary>
+        private IPlatformArchitectureElement LoadPlatformArchitecture(PlatformArchitecture_v1 spa)
+        {
+            var sTrashedRegs = spa.TrashedRegisters ?? "";
+            var sLibraries = spa.TypeLibraries ?? new TypeLibraryReference_v1[0];
+            return new PlatformArchitectureElement
+            {
+                Name = spa.Name,
+                TrashedRegisters = sTrashedRegs
+                    .Split(',')
+                    .Select(s =>  s.Trim())
+                    .ToList(),
+                TypeLibraries = LoadCollection(sLibraries, LoadTypeLibraryReference)
+            };
+        }
+
         private RawFileElement LoadRawFile(RawFile_v1 sRaw)
         {
             return new RawFileElementImpl
@@ -168,12 +188,22 @@ namespace Reko.Core.Configuration
                 Description = sRaw.Description,
                 EntryPoint = LoadEntryPoint(sRaw.Entry),
                 Environment = sRaw.Environment,
+                Loader = sRaw.LoaderType,
                 Name = sRaw.Name,
             };
         }
 
         private EntryPointElement LoadEntryPoint(EntryPoint_v1 sEntry)
         {
+            if (sEntry == null)
+            {
+                return new EntryPointElement
+                {
+                    Address = null,
+                    Follow = false,
+                    Name = null,
+                };
+            }
             return new EntryPointElement
             {
                 Address = sEntry.Address,
@@ -266,7 +296,7 @@ namespace Reko.Core.Configuration
             if (elem == null)
                 return null;
 
-            Type t = Type.GetType(elem.TypeName, false);
+            Type t = Type.GetType(elem.TypeName, true);
             if (t == null)
                 return null;
             var arch = (IProcessorArchitecture)t.GetConstructor(Type.EmptyTypes).Invoke(null);

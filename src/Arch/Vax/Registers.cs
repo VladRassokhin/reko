@@ -1,6 +1,6 @@
 ﻿#region License
 /* 
- * Copyright (C) 1999-2016 John Källén.
+ * Copyright (C) 1999-2017 John Källén.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -49,7 +49,7 @@ namespace Reko.Arch.Vax
         public static RegisterStorage sp = RegisterStorage.Reg32("sp", 14);
         public static RegisterStorage pc = RegisterStorage.Reg32("pc", 15);
 
-        public static readonly FlagRegister psw = new FlagRegister("psw", PrimitiveType.UInt32);
+        public static readonly FlagRegister psw = new FlagRegister("psw", 20, PrimitiveType.UInt32);
     }
 
 

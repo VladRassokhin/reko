@@ -1,6 +1,6 @@
 ﻿#region License
 /* 
- * Copyright (C) 1999-2016 John Källén.
+ * Copyright (C) 1999-2017 John Källén.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -127,6 +127,18 @@ namespace Reko.UnitTests.Environments.SysV
                 return sb;
             }
 
+            public StringBuilder VisitReference(ReferenceType_v1 reference)
+            {
+                var n = name;
+                name = null;
+                reference.Referent.Accept(this);
+                sb.AppendFormat(" &");
+                name = n;
+                if (name != null)
+                    sb.AppendFormat(" {0}", name);
+                return sb;
+            }
+
             public StringBuilder VisitMemberPointer(MemberPointer_v1 memptr)
             {
                 var n = name;
@@ -190,6 +202,11 @@ namespace Reko.UnitTests.Environments.SysV
 
             public StringBuilder VisitTypeReference(TypeReference_v1 typeReference)
             {
+                if (typeReference.Scope != null)
+                {
+                    sb.Append(string.Join("::", typeReference.Scope));
+                    sb.Append("::");
+                }
                 sb.Append(typeReference.TypeName);
                 if (name != null)
                     sb.AppendFormat(" {0}", name);
@@ -262,7 +279,47 @@ namespace Reko.UnitTests.Environments.SysV
                 "_Z3foo3bar");
         }
 
+        [Test]
+        public void Gmnp_StaticFunction()
+        {
+            RunTest(
+                "foo(bar)",
+                "_ZL3foo3bar");
+        }
+
+        [Test]
+        public void Gmnp_Regression2()
+        {
+            RunTest(
+                "std::ostream::operator<<(int)",
+                "_ZNSolsEi");
+        }
+
+        [Test]
+        public void Gmnp_std()
+        {
+            RunTest(
+                "std::_Rb_tree_increment(std::_Rb_tree_node_base *)",
+                "_ZSt18_Rb_tree_incrementPSt18_Rb_tree_node_base");
+        }
+
+        [Test]
+        public void Gmnp_std_string()
+        {
+            RunTest(
+                "std::string::assign(std::string &)",
+                "_ZNSs6assignERKSs");
+        }
+
+        [Test]
+        public void Gmnp_destructor()
+        {
+            RunTest(
+                "std::string::~string()",
+                "_ZNSsD1Ev");
+        }
         /*
+
  _ZN5Timer14getElapsedTimeEv
 _ZN15TAnimatedSpriteD2Ev
 _ZNSt6vectorIcSaIcEE15_M_range_insertIPcEEvN9__gnu_cxx17__normal_iteratorIS3_S1_EET_S7_St20forward_iterator_tag

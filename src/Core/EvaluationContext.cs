@@ -1,6 +1,6 @@
 ﻿#region License
 /* 
- * Copyright (C) 1999-2016 John Källén.
+ * Copyright (C) 1999-2017 John Källén.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -57,6 +57,7 @@ namespace Reko.Core
         Expression GetDefiningExpression(Identifier id);
         void RemoveIdentifierUse(Identifier id);
         void UseExpression(Expression expr);
+        void RemoveExpressionUse(Expression expr);
         void SetValue(Identifier id, Expression value);
         void SetValueEa(Expression ea, Expression value);
         void SetValueEa(Expression basePointer, Expression ea, Expression value);

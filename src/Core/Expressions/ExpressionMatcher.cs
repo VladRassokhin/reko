@@ -1,6 +1,6 @@
 ﻿#region License
 /* 
- * Copyright (C) 1999-2016 John Källén.
+ * Copyright (C) 1999-2017 John Källén.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -361,6 +361,11 @@ namespace Reko.Core.Expressions
                 this.Label = label;
             }
 
+            public override IEnumerable<Expression> Children
+            {
+                get { yield break; }
+            }
+
             public string Label { get; private set; }
 
             public override Expression CloneExpression()
@@ -418,6 +423,11 @@ namespace Reko.Core.Expressions
             }
 
             public string Label { get; private set; }
+
+            public override IEnumerable<Expression> Children
+            {
+                get { yield break; }
+            }
 
             public override T Accept<T, C>(ExpressionVisitor<T, C> v, C context)
             {
@@ -486,7 +496,7 @@ namespace Reko.Core.Expressions
                 throw new NotImplementedException();
             }
 
-            public override DataType Clone()
+            public override DataType Clone(IDictionary<DataType, DataType> clonedTypes)
             {
                 throw new NotImplementedException();
             }

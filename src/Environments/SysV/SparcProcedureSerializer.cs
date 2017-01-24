@@ -1,6 +1,6 @@
 ﻿#region License
 /* 
- * Copyright (C) 1999-2016 John Källén.
+ * Copyright (C) 1999-2017 John Källén.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -29,9 +29,18 @@ namespace Reko.Environments.SysV
 {
     public class SparcProcedureSerializer : ProcedureSerializer
     {
+        private static string[] iregs = new string[]
+        {
+            "o0","o1","o2","o3","o4","o5",
+        };
+
         private ArgumentDeserializer argser;
 
-        public SparcProcedureSerializer(IProcessorArchitecture arch, ISerializedTypeVisitor<DataType> typeLoader, string defaultConvention) : base(arch, typeLoader, defaultConvention)
+        public SparcProcedureSerializer(
+            IProcessorArchitecture arch,
+            ISerializedTypeVisitor<DataType> typeLoader, 
+            string defaultConvention)
+        : base(arch, typeLoader, defaultConvention)
         {
         }
 
@@ -78,10 +87,6 @@ namespace Reko.Environments.SysV
             return sig;
         }
 
-        private static string[] iregs = new string[]
-        {
-            "o0","o1","o2","o3","o4","o5",
-        };
         private int ir;
 
         public Identifier DeserializeArgument(Argument_v1 sArg, int idx, string convention)

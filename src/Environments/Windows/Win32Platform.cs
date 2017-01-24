@@ -1,6 +1,6 @@
 #region License
 /* 
- * Copyright (C) 1999-2016 John Källén.
+ * Copyright (C) 1999-2017 John Källén.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -96,6 +96,18 @@ namespace Reko.Environments.Windows
                  Registers.gs,
             };
             return bitset;
+        }
+
+        public override HashSet<RegisterStorage> CreateTrashedRegisters()
+        {
+            // Win32 preserves, ebx, esi, edi.
+            return new HashSet<RegisterStorage>
+            {
+                Registers.eax,
+                Registers.ecx,
+                Registers.edx,
+                Registers.esp,
+            };
         }
 
         public override ProcedureSerializer CreateProcedureSerializer(ISerializedTypeVisitor<DataType> typeLoader, string defaultConvention)
@@ -266,5 +278,14 @@ namespace Reko.Environments.Windows
                 new TypeLibraryDeserializer(this, true, Metadata),
                 this);
         }
-	}
+
+        public override Tuple<string, DataType, SerializedType> DataTypeFromImportName(string importName)
+        {
+            EnsureTypeLibraries(PlatformIdentifier);
+            return SignatureGuesser.InferTypeFromName(
+                importName,
+                new TypeLibraryDeserializer(this, true, Metadata),
+                this);
+        }
+    }
 }

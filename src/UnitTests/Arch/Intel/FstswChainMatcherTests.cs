@@ -1,6 +1,6 @@
 ﻿#region License
 /* 
- * Copyright (C) 1999-2016 John Källén.
+ * Copyright (C) 1999-2017 John Källén.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -29,6 +29,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using Reko.Core.Expressions;
 
 namespace Reko.UnitTests.Arch.Intel
 {
@@ -48,7 +49,7 @@ namespace Reko.UnitTests.Arch.Intel
             arch = new X86ArchitectureFlat32();
             asm = new X86Assembler(null, new DefaultPlatform(null, new X86ArchitectureFlat32()), Address.Ptr32(0x10000), new List<ImageSymbol>());
             Procedure proc = new Procedure("test", arch.CreateFrame());
-            orw = new OperandRewriter32(arch, proc.Frame, null);
+            orw = new OperandRewriter32(arch, new ExpressionEmitter(), proc.Frame, null);
             emitter = new ProcedureBuilder();
         }
 

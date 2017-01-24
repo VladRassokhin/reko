@@ -1,6 +1,6 @@
 ﻿#region License
 /* 
- * Copyright (C) 1999-2016 John Källén.
+ * Copyright (C) 1999-2017 John Källén.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -20,6 +20,7 @@
 
 using Reko.Core;
 using Reko.Core.Expressions;
+using Reko.Core.Machine;
 using Reko.Core.Operators;
 using Reko.Core.Rtl;
 using Reko.Core.Types;
@@ -86,6 +87,32 @@ namespace Reko.Arch.PowerPC
             emitter.Assign(opD, emitter.Cast(PrimitiveType.Int32, emitter.LoadW(ea)));
             emitter.Assign(opD, ea);
         }
+
+        private void RewriteLmw()
+        {
+            var r = ((RegisterOperand)instr.op1).Register.Number;
+            var ea = EffectiveAddress_r0(instr.op2, emitter);
+            var tmp = frame.CreateTemporary(ea.DataType);
+            emitter.Assign(tmp, ea);
+            while (r <= 31)
+            {
+                var reg = frame.EnsureRegister(arch.GetRegister(r));
+                Expression w = reg;
+                if (reg.DataType.Size > 4)
+                {
+                    var tmp2 = frame.CreateTemporary(PrimitiveType.Word32);
+                    emitter.Assign(tmp2, emitter.LoadDw(tmp));
+                    emitter.Assign(reg, emitter.Dpb(reg, tmp2, 0));
+                }
+                else
+                {
+                    emitter.Assign(reg, emitter.LoadDw(tmp));
+                }
+                emitter.Assign(tmp, emitter.IAdd(tmp, emitter.Int32(4)));
+                ++r;
+            }
+        }
+
 
         private void RewriteLvewx()
         {
@@ -196,6 +223,25 @@ namespace Reko.Arch.PowerPC
             emitter.Assign(emitter.Load(dataType, ea), s);
         }
 
+        private void RewriteStmw()
+        {
+            var r = ((RegisterOperand)instr.op1).Register.Number;
+            var ea = EffectiveAddress_r0(instr.op2, emitter);
+            var tmp = frame.CreateTemporary(ea.DataType);
+            while (r <= 31)
+            {
+                var reg = arch.GetRegister(r);
+                Expression w = frame.EnsureRegister(reg);
+                if (reg.DataType.Size > 4)
+                {
+                    w = emitter.Slice(PrimitiveType.Word32, w, 0);
+                }
+                emitter.Assign(emitter.LoadDw(tmp), w);
+                emitter.Assign(tmp, emitter.IAdd(tmp, emitter.Int32(4)));
+                ++r;
+            }
+        }
+
         private void RewriteStu(PrimitiveType dataType)
         {
             var s = RewriteOperand(instr.op1);
@@ -258,29 +304,26 @@ namespace Reko.Arch.PowerPC
             var c = (Constant) RewriteOperand(instr.op1);
             var ra = RewriteOperand(instr.op2);
             var rb = RewriteOperand(instr.op3);
-            Operator op = null;
+            Func<Expression,Expression,Expression> op = null;
             switch (c.ToInt32())
             {
-            case 0x01: op = Operator.Ugt; break;
-            case 0x02: op = Operator.Ult; break;
-            case 0x04: op = Operator.Eq; break;
-            case 0x05: op = Operator.Uge; break;
-            case 0x06: op = Operator.Ule; break;
-            case 0x08: op = Operator.Gt; break;
-            case 0x0C: op = Operator.Ge; break;
-            case 0x10: op = Operator.Lt; break;
-            case 0x14: op = Operator.Le; break;
-            case 0x18: op = Operator.Ne; break;
+            case 0x01: op = emitter.Ugt; break;
+            case 0x02: op = emitter.Ult; break;
+            case 0x04: op = emitter.Eq; break;
+            case 0x05: op = emitter.Uge; break;
+            case 0x06: op = emitter.Ule; break;
+            case 0x08: op = emitter.Gt; break;
+            case 0x0C: op = emitter.Ge; break;
+            case 0x10: op = emitter.Lt; break;
+            case 0x14: op = emitter.Le; break;
+            case 0x18: op = emitter.Ne; break;
             default: throw new AddressCorrelatedException(
                 instr.Address,
                 string.Format("Unsupported trap operand {0:X2}.", c.ToInt32()));
             }
             cluster.Class = RtlClass.Linear;
             emitter.If(
-                new BinaryExpression(
-                    op,
-                    PrimitiveType.Bool,
-                    ra, rb),
+                op(ra, rb),
                 new RtlSideEffect(
                     host.PseudoProcedure(
                         "__trap",

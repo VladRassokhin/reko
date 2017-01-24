@@ -1,6 +1,6 @@
 ﻿#region License
 /* 
- * Copyright (C) 1999-2016 John Källén.
+ * Copyright (C) 1999-2017 John Källén.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -203,9 +203,9 @@ namespace Reko.Arch.X86
             D = FlagRegister("D", 35);
             O = FlagRegister("O", 36);
             P = FlagRegister("P", 37);
-            eflags = new Core.FlagRegister("eflags", PrimitiveType.Word32);
-            FPUF = new RegisterStorage("FPUF", 38, 0, PrimitiveType.Byte);
-            FPST = new RegisterStorage("FPST", 38, 0, PrimitiveType.Byte); 
+            eflags = new Core.FlagRegister("eflags", 38, PrimitiveType.Word32);
+            FPUF = new RegisterStorage("FPUF", 39, 0, PrimitiveType.Byte);
+            FPST = new RegisterStorage("FPST", 39, 0, PrimitiveType.Byte); 
 
             rax = new RegisterStorage("rax", 0, 0, PrimitiveType.Word64);
             rcx = new RegisterStorage("rcx", 1, 0, PrimitiveType.Word64);

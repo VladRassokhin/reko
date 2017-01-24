@@ -1,6 +1,6 @@
 ﻿#region License
 /* 
- * Copyright (C) 1999-2016 John Källén.
+ * Copyright (C) 1999-2017 John Källén.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -29,6 +29,7 @@ using Reko.Core.Services;
 using Reko.Core.Types;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Text;
 
@@ -37,9 +38,12 @@ namespace Reko.Environments.SysV
     //$TODO: rename to Elf-Neutral? Or Posix?
     public class SysVPlatform : Platform
     {
+        private RegisterStorage[] trashedRegs;
+
         public SysVPlatform(IServiceProvider services, IProcessorArchitecture arch)
             : base(services, arch, "elf-neutral")
         {
+            LoadTrashedRegisters();
         }
 
         public override string DefaultCallingConvention
@@ -52,6 +56,7 @@ namespace Reko.Environments.SysV
             switch (Architecture.Name)
             {
             case "mips-be-32":
+            case "mips-le-32":
                 return new MipsProcedureSerializer(Architecture, typeLoader, defaultConvention);
             case "ppc32":
                 return new PowerPcProcedureSerializer(Architecture, typeLoader, defaultConvention);
@@ -61,6 +66,16 @@ namespace Reko.Environments.SysV
                 return new X86ProcedureSerializer(Architecture, typeLoader, defaultConvention);
             case "x86-protected-64":
                 return new X86_64ProcedureSerializer(Architecture, typeLoader, defaultConvention);
+            case "xtensa":
+                return new XtensaProcedureSerializer(Architecture, typeLoader, defaultConvention);
+            case "arm":
+                return new Arm32ProcedureSerializer(Architecture, typeLoader, defaultConvention);
+            case "m68k":
+                return new M68kProcedureSerializer(Architecture, typeLoader, defaultConvention);
+            case "avr8":
+                return new Avr8ProcedureSerializer(Architecture, typeLoader, defaultConvention);
+            case "risc-v":
+                return new RiscVProcedureSerializer(Architecture, typeLoader, defaultConvention);
             default:
                 throw new NotImplementedException(string.Format("Procedure serializer for {0} not implemented yet.", Architecture.Description));
             }
@@ -71,9 +86,14 @@ namespace Reko.Environments.SysV
             return new HashSet<RegisterStorage>();
         }
 
+        public override HashSet<RegisterStorage> CreateTrashedRegisters()
+        {
+            return this.trashedRegs.ToHashSet();
+        }
+
         public override SystemService FindService(int vector, ProcessorState state)
         {
-            throw new NotImplementedException(); 
+            throw new NotImplementedException();
         }
 
         public override int GetByteSizeFromCBasicType(CBasicType cb)
@@ -81,7 +101,7 @@ namespace Reko.Environments.SysV
             switch (cb)
             {
             case CBasicType.Char: return 1;
-            case CBasicType.WChar_t: return 2; 
+            case CBasicType.WChar_t: return 2;
             case CBasicType.Short: return 2;
             case CBasicType.Int: return 4;
             case CBasicType.Long: return 4;
@@ -141,10 +161,28 @@ namespace Reko.Environments.SysV
             {
             case "mips-be-32":
                 // MIPS ELF ABI: r25 is _always_ set to the address of a procedure on entry.
-                m.Assign(proc.Frame.EnsureRegister(Architecture.GetRegister(25)), Constant.Word32((uint) addr.ToLinear()));
+                m.Assign(proc.Frame.EnsureRegister(Architecture.GetRegister(25)), Constant.Word32((uint)addr.ToLinear()));
                 break;
             }
         }
+
+        private void LoadTrashedRegisters()
+        {
+            if (Services != null)
+            {
+                var cfgSvc = Services.RequireService<IConfigurationService>();
+                var pa = cfgSvc.GetEnvironment(this.PlatformIdentifier).Architectures.SingleOrDefault(a => a.Name == Architecture.Name);
+                if (pa != null)
+                {
+                    this.trashedRegs = pa.TrashedRegisters
+                        .Select(r => Architecture.GetRegister(r))
+                        .Where(r => r != null)
+                        .ToArray();
+                    return;
+                }
+            }
+            this.trashedRegs = new RegisterStorage[0];
+        } 
 
         public override ExternalProcedure LookupProcedureByName(string moduleName, string procName)
         {
@@ -160,6 +198,35 @@ namespace Reko.Environments.SysV
             if (characteristics != null)
                 proc.Characteristics = characteristics;
             return proc;
+        }
+
+        public override ExternalProcedure SignatureFromName(string fnName)
+        {
+            StructField_v1 field = null;
+            try
+            {
+                var gcc = new GccMangledNameParser(fnName, this.PointerType.Size);
+                field = gcc.Parse();
+            }
+            catch (Exception ex)
+            {
+                Debug.Print("*** Error parsing {0}. {1}", fnName, ex.Message);
+                return null;
+            }
+            if (field == null)
+                return null;
+            var sproc = field.Type as SerializedSignature;
+            if (sproc != null)
+            {
+                var loader = new TypeLibraryDeserializer(this, false, Metadata);
+                var sser = this.CreateProcedureSerializer(loader, sproc.Convention);
+                var sig = sser.Deserialize(sproc, this.Architecture.CreateFrame());    //$BUGBUG: catch dupes?
+                return new ExternalProcedure(field.Name, sig)
+                {
+                    EnclosingType = sproc.EnclosingType
+                };
+            }
+            return null;
         }
     }
 }

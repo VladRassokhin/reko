@@ -1,6 +1,6 @@
 ﻿#region License
 /* 
- * Copyright (C) 1999-2016 John Källén.
+ * Copyright (C) 1999-2017 John Källén.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -1177,6 +1177,13 @@ MemoryBarrier (
                 return;
             }
             Assert.Fail("Should have failed to parse");
+        }
+
+        [Test]
+        public void CParser_Argument_Attributes()
+        {
+            Lex("int _ftol([[reko::x87_fpu_arg]]double);");
+            var decl = parser.Parse_ExternalDecl();
         }
     }
 }

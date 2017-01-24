@@ -1,6 +1,6 @@
 #region License
 /* 
- * Copyright (C) 1999-2016 John Källén.
+ * Copyright (C) 1999-2017 John Källén.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -54,6 +54,20 @@ namespace Reko.Environments.Msdos
             Registers.ss,
             Registers.sp,
             Registers.esp,
+            };
+        }
+
+        public override HashSet<RegisterStorage> CreateTrashedRegisters()
+        {
+            // On MS-DOS, C and Pascal compilers
+            // typically saved bp, si, and di.
+            return new HashSet<RegisterStorage>
+            {
+                Registers.ax,
+                Registers.cx,
+                Registers.dx,
+                Registers.bx,
+                Registers.sp,
             };
         }
 

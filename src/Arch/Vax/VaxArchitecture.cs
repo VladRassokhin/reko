@@ -1,6 +1,6 @@
 ﻿#region License
 /* 
- * Copyright (C) 1999-2016 John Källén.
+ * Copyright (C) 1999-2017 John Källén.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -129,6 +129,21 @@ namespace Reko.Arch.Vax
         public override FlagGroupStorage GetFlagGroup(uint grf)
         {
             throw new NotImplementedException();
+        }
+
+        public override SortedList<string, int> GetOpcodeNames()
+        {
+            return Enum.GetValues(typeof(Opcode))
+                .Cast<Opcode>()
+                .ToSortedList(v => Enum.GetName(typeof(Opcode), v), v => (int)v);
+        }
+
+        public override int? GetOpcodeNumber(string name)
+        {
+            Opcode result;
+            if (!Enum.TryParse(name, out result))
+                return null;
+            return (int)result;
         }
 
         public override RegisterStorage GetRegister(string name)

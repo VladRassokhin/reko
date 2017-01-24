@@ -1,6 +1,6 @@
 ﻿#region License
 /* 
- * Copyright (C) 1999-2016 John Källén.
+ * Copyright (C) 1999-2017 John Källén.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -217,18 +217,14 @@ namespace Reko.Arch.M68k
             }
         }
 
-        public void RewriteAddSubx(BinaryOperator opr)
+        public void RewriteAddSubx(Func<Expression,Expression,Expression> opr)
         {
             // We do not take the trouble of widening the CF to the word size
             // to simplify code analysis in later stages. 
             var x = orw.FlagGroup(FlagM.XF);
             var src = orw.RewriteSrc(di.op1, di.Address);
             var dst = orw.RewriteDst(di.op2, di.Address, src, (d, s) => 
-                new BinaryExpression(
-                    opr,
-                    di.dataWidth,
-                    new BinaryExpression(opr, di.dataWidth, d, s),
-                    x));
+                    opr(opr(d, s), x));
             emitter.Assign(orw.FlagGroup(FlagM.CVZNX), emitter.Cond(dst));
         }
 
@@ -441,27 +437,31 @@ namespace Reko.Arch.M68k
                 emitter.Cond(opDst));
         }
 
-        public IEnumerable<Identifier> RegisterMaskIncreasing(uint bitSet)
+        public IEnumerable<Identifier> RegisterMaskIncreasing(Domain dom, uint bitSet, Func<int,RegisterStorage> regGenerator)
         {
-            for (int i = 0, mask = 0x8000; i < 16; ++i, mask >>= 1)
+            int maxReg = dom == Domain.Real ? 8 : 16;
+            int mask = dom == Domain.Real ? 0x80 : 0x8000;
+
+            for (int i = 0; i < maxReg; ++i, mask >>= 1)
             {
                 if ((bitSet & mask) != 0)
                 {
-                    yield return frame.EnsureRegister(arch.GetRegister(i));
+                    yield return frame.EnsureRegister(regGenerator(i));
                 }
             }
         }
 
-        public IEnumerable<Identifier> RegisterMaskDecreasing(uint bitSet)
+        public IEnumerable<Identifier> RegisterMaskDecreasing(Domain dom, uint bitSet, Func<int, RegisterStorage> regGenerator)
         {
-            for (int i = 15, mask = 1; i >= 0; --i, mask <<= 1)
+            int maxReg = dom == Domain.Real ? 8 : 16;
+            for (int i = maxReg-1, mask = 1; i >= 0; --i, mask <<= 1)
             {
                 if ((bitSet & mask) != 0)
-                    yield return frame.EnsureRegister(arch.GetRegister(i));
+                    yield return frame.EnsureRegister(regGenerator(i));
             }
         }
 
-        public void RewriteMovem()
+        public void RewriteMovem(Func<int, RegisterStorage> regGenerator)
         {
             var dstRegs = di.op2 as RegisterSetOperand;
             if (dstRegs != null)
@@ -477,10 +477,10 @@ namespace Reko.Arch.M68k
                     var src = orw.RewriteSrc(di.op1, di.Address) as MemoryAccess;
                     if (src == null)
                         throw new AddressCorrelatedException(di.Address, "Unsupported addressing mode for {0}.", di);
-                    srcReg = frame.CreateTemporary(di.dataWidth);
+                    srcReg = frame.CreateTemporary(src.EffectiveAddress.DataType);
                     emitter.Assign(srcReg, src.EffectiveAddress);
                 }
-                foreach (var reg in RegisterMaskIncreasing(dstRegs.BitSet))
+                foreach (var reg in RegisterMaskIncreasing(dstRegs.Width.Domain, dstRegs.BitSet, regGenerator))
                 {
                     emitter.Assign(reg, emitter.Load(di.dataWidth, srcReg));
                     emitter.Assign(srcReg, emitter.IAdd(srcReg, di.dataWidth.Size));
@@ -494,7 +494,7 @@ namespace Reko.Arch.M68k
                 if (preDec != null)
                 {
                     var dstReg = frame.EnsureRegister(preDec.Register);
-                    foreach (var reg in RegisterMaskDecreasing(dstRegs.BitSet))
+                    foreach (var reg in RegisterMaskDecreasing(dstRegs.Width.Domain, dstRegs.BitSet, regGenerator))
                     {
                         emitter.Assign(dstReg, emitter.ISub(dstReg, di.dataWidth.Size));
                         emitter.Assign(emitter.Load(di.dataWidth, dstReg), reg);
@@ -507,7 +507,7 @@ namespace Reko.Arch.M68k
                         throw new AddressCorrelatedException(di.Address, "Unsupported addressing mode for {0}.", di);
                     var srcReg = frame.CreateTemporary(di.dataWidth);
                     emitter.Assign(srcReg, src.EffectiveAddress);
-                    foreach (var reg in RegisterMaskIncreasing(dstRegs.BitSet))
+                    foreach (var reg in RegisterMaskIncreasing(dstRegs.Width.Domain, dstRegs.BitSet, regGenerator))
                     {
                         emitter.Assign(reg, emitter.Load(di.dataWidth, srcReg));
                         emitter.Assign(srcReg, emitter.IAdd(srcReg, di.dataWidth.Size));

@@ -1,6 +1,6 @@
 #region License
 /* 
- * Copyright (C) 1999-2016 John Källén.
+ * Copyright (C) 1999-2017 John Källén.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -19,6 +19,7 @@
 #endregion
 
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 
 namespace Reko.Core.Expressions
@@ -26,6 +27,17 @@ namespace Reko.Core.Expressions
 	/// <summary>
 	/// Replaces the bits in the specified range with the new expression.
 	/// </summary>
+    /// <remarks>
+    /// The name stems from the PDP-10 DPB ("deposit bits") instruction. It
+    /// is used to model the common case when part of a register is replaced
+    /// with bits from another source. As an example consider the following
+    /// M68k instruction, which loads a byte into the low word of D0:
+    /// <code>
+    /// move.b D1,D0
+    /// </code>
+    /// This is modelled by the following assignment:
+    /// d0 = DPB(d0, (byte) d1, 0)
+    /// </remarks>
 	public class DepositBits : Expression
 	{
 		private Expression src;
@@ -38,6 +50,11 @@ namespace Reko.Core.Expressions
 			this.bits = bits;
 			this.bitPos = bitPos;
 		}
+
+        public override IEnumerable<Expression> Children
+        {
+            get { yield return Source; yield return InsertedBits ; }
+        }
 
         public override T Accept<T, C>(ExpressionVisitor<T, C> v, C context)
         {

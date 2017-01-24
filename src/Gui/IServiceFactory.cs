@@ -1,6 +1,6 @@
 ﻿#region License
 /* 
-* Copyright (C) 1999-2016 John Källén.
+* Copyright (C) 1999-2017 John Källén.
 *
 * This program is free software; you can redistribute it and/or modify
 * it under the terms of the GNU General Public License as published by
@@ -55,6 +55,7 @@ namespace Reko.Gui
         IUiPreferencesService CreateUiPreferencesService();
         ILoader CreateLoader();
         ICallGraphViewService CreateCallGraphViewService();
+        IViewImportsService CreateViewImportService();
     }
 
     public class ServiceFactory : IServiceFactory
@@ -163,6 +164,11 @@ namespace Reko.Gui
         public ICallGraphViewService CreateCallGraphViewService()
         {
             return new CallGraphViewService(services);
+        }
+
+        public IViewImportsService CreateViewImportService()
+        {
+            return new ViewImportsService(services);
         }
     }
 }

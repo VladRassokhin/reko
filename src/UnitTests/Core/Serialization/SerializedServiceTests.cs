@@ -1,6 +1,6 @@
 #region License
 /* 
- * Copyright (C) 1999-2016 John Källén.
+ * Copyright (C) 1999-2017 John Källén.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -50,7 +50,7 @@ namespace Reko.UnitTests.Core.Serialization
             this.arch = new X86ArchitectureReal();
             this.platform = new MsdosPlatform(sc, arch);
 
-            ArgumentSerializer argSer = new ArgumentSerializer(null, arch, null, 0);
+            ArgumentSerializer argSer = new ArgumentSerializer(arch);
 
             svc = new SerializedService
             {

@@ -1,6 +1,6 @@
 ﻿#region License
 /* 
- * Copyright (C) 1999-2016 John Källén.
+ * Copyright (C) 1999-2017 John Källén.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -312,6 +312,7 @@ word32 fn0010000C(word32 dwArg04, word32 dwArg08)
 	word32 edx_21 = 0x00000000;
 	word32 eax_24 = (word32) Mem0[ecx_12 + 0x00000014:word16] + 0x00000012 + ecx_12 + 0x0000000C;
 	if (true)
+	{
 		do
 		{
 			word32 ecx_56 = Mem0[eax_24 + 0x00000000:word32];
@@ -320,6 +321,7 @@ word32 fn0010000C(word32 dwArg04, word32 dwArg08)
 			edx_21 = edx_21 + 0x00000001;
 			eax_24 = eax_24 + 0x00000028;
 		} while (edx_21 <u esi_20);
+	}
 	eax_24 = 0x00000000;
 	return eax_24;
 }

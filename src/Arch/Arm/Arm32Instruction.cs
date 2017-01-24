@@ -1,6 +1,6 @@
 ﻿#region License
 /* 
- * Copyright (C) 1999-2016 John Källén.
+ * Copyright (C) 1999-2017 John Källén.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -371,21 +371,21 @@ namespace Reko.Arch.Arm
 
         static Arm32Instruction()
         {
-            classOf = new Dictionary<ArmInstruction, InstructionClass>
+            classOf = new Dictionary<Opcode, InstructionClass>
             {
-                { ArmInstruction.Invalid, InstructionClass.Invalid },
+                { Opcode.Invalid, InstructionClass.Invalid },
 
-                { ArmInstruction.BKPT,  InstructionClass.Transfer },
-                { ArmInstruction.BL,    InstructionClass.Transfer | InstructionClass.Call },
-                { ArmInstruction.BLX,   InstructionClass.Transfer | InstructionClass.Call },
-                { ArmInstruction.BX,    InstructionClass.Transfer },
-                { ArmInstruction.BXJ,   InstructionClass.Transfer },
-                { ArmInstruction.B,     InstructionClass.Transfer },
-                { ArmInstruction.HLT,   InstructionClass.Transfer },
-                { ArmInstruction.SVC,   InstructionClass.Transfer },
-                { ArmInstruction.TEQ,   InstructionClass.Transfer },
-                { ArmInstruction.TRAP,  InstructionClass.Transfer },
-                { ArmInstruction.YIELD, InstructionClass.Transfer },
+                { Opcode.BKPT,  InstructionClass.Transfer },
+                { Opcode.BL,    InstructionClass.Transfer | InstructionClass.Call },
+                { Opcode.BLX,   InstructionClass.Transfer | InstructionClass.Call },
+                { Opcode.BX,    InstructionClass.Transfer },
+                { Opcode.BXJ,   InstructionClass.Transfer },
+                { Opcode.B,     InstructionClass.Transfer },
+                { Opcode.HLT,   InstructionClass.Transfer },
+                { Opcode.SVC,   InstructionClass.Transfer },
+                { Opcode.TEQ,   InstructionClass.Transfer },
+                { Opcode.TRAP,  InstructionClass.Transfer },
+                { Opcode.YIELD, InstructionClass.Transfer },
             };
         }
     }

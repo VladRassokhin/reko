@@ -1,6 +1,6 @@
 ﻿#region License
 /* 
- * Copyright (C) 1999-2016 John Källén.
+ * Copyright (C) 1999-2017 John Källén.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -29,6 +29,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using Opcode = Gee.External.Capstone.Arm.ArmInstruction;
 
 namespace Reko.Arch.Arm
 {
@@ -91,6 +92,23 @@ namespace Reko.Arch.Arm
         public override IEnumerable<RtlInstructionCluster> CreateRewriter(ImageReader rdr, ProcessorState state, Frame frame, IRewriterHost host)
         {
             return new ThumbRewriter(this, rdr, (ArmProcessorState) state, frame, host);
+        }
+
+        public override SortedList<string, int> GetOpcodeNames()
+        {
+            return Enum.GetValues(typeof(Opcode))
+                .Cast<Opcode>()
+                .ToSortedList(
+                    v => v.ToString().ToLowerInvariant(),
+                    v => (int)v);
+        }
+
+        public override int? GetOpcodeNumber(string name)
+        {
+            Opcode result;
+            if (!Enum.TryParse(name, true, out result))
+                return null;
+            return (int)result;
         }
 
         public override RegisterStorage GetRegister(int i)

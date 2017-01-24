@@ -1,6 +1,6 @@
 ﻿#region License
 /* 
- * Copyright (C) 1999-2016 John Källén.
+ * Copyright (C) 1999-2017 John Källén.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -18,15 +18,13 @@
  */
 #endregion
 
+using Reko.Arch.M68k;
 using Reko.Core;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using Reko.Core.CLanguage;
 using Reko.Core.Serialization;
 using Reko.Core.Types;
+using System;
+using System.Collections.Generic;
 
 namespace Reko.Environments.SegaGenesis
 {
@@ -40,6 +38,11 @@ namespace Reko.Environments.SegaGenesis
         public override string DefaultCallingConvention { get { return ""; } }
 
         public override HashSet<RegisterStorage> CreateImplicitArgumentRegisters()
+        {
+            return new HashSet<RegisterStorage> { Registers.a7 };
+        }
+
+        public override HashSet<RegisterStorage> CreateTrashedRegisters()
         {
             return new HashSet<RegisterStorage>();
         }

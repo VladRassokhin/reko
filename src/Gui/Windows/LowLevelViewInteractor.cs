@@ -1,6 +1,6 @@
 ﻿#region License
 /* 
- * Copyright (C) 1999-2016 John Källén.
+ * Copyright (C) 1999-2017 John Källén.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -57,21 +57,29 @@ namespace Reko.Gui.Windows
             set
             {
                 program = value;
-                if (value != null)
-                {
-                    control.MemoryView.ImageMap = value.ImageMap;
-                    control.MemoryView.SegmentMap = value.SegmentMap;
-                    control.MemoryView.Architecture = value.Architecture;
-                    control.DisassemblyView.Program = value;
-                    var seg = program.SegmentMap.Segments.Values.First();
-                    control.DisassemblyView.Program = value;
-                    control.DisassemblyView.Model = new DisassemblyTextModel(value, seg);
-                    control.ImageMapView.ImageMap = value.ImageMap;
-                    control.ImageMapView.SegmentMap = value.SegmentMap;
-                    control.ImageMapView.Granularity = value.SegmentMap.GetExtent();
-                    control.ByteMapView.SegmentMap = value.SegmentMap;
-                }
+                OnProgramChanged(value);
             }
+        }
+
+        private void OnProgramChanged(Program value)
+        {
+            if (value != null)
+            {
+                control.MemoryView.ImageMap = value.ImageMap;
+                control.MemoryView.SegmentMap = value.SegmentMap;
+                control.MemoryView.Architecture = value.Architecture;
+                control.DisassemblyView.Program = value;
+                var seg = program.SegmentMap.Segments.Values.FirstOrDefault();
+                if (seg == null)
+                    return;
+                control.DisassemblyView.Program = value;
+                control.DisassemblyView.Model = new DisassemblyTextModel(value, seg);
+                control.ImageMapView.ImageMap = value.ImageMap;
+                control.ImageMapView.SegmentMap = value.SegmentMap;
+                control.ImageMapView.Granularity = value.SegmentMap.GetExtent();
+                control.ByteMapView.SegmentMap = value.SegmentMap;
+            }
+            return;
         }
 
         public virtual Address SelectedAddress
@@ -540,10 +548,13 @@ namespace Reko.Gui.Windows
         {
             ignoreAddressChange = true;
             var value = Control.CurrentAddress;
-            var addrTop = value - ((int)value.ToLinear() & 0x0F);
-            control.MemoryView.SelectedAddress = value;
-            control.MemoryView.TopAddress = addrTop;
-            control.DisassemblyView.TopAddress = value;
+            if (value != null)
+            {
+                var addrTop = value - ((int)value.ToLinear() & 0x0F);
+                control.MemoryView.SelectedAddress = value;
+                control.MemoryView.TopAddress = addrTop;
+                control.DisassemblyView.TopAddress = value;
+            }
             ignoreAddressChange = false;
         }
 

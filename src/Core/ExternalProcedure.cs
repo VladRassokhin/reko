@@ -1,6 +1,6 @@
 #region License
 /* 
- * Copyright (C) 1999-2016 John Källén.
+ * Copyright (C) 1999-2017 John Källén.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -51,7 +51,7 @@ namespace Reko.Core
 			StringWriter sw = new StringWriter();
             TextFormatter fmt = new TextFormatter(sw);
             CodeFormatter cf = new CodeFormatter(fmt);
-            TypeFormatter tf = new TypeFormatter(fmt, false);
+            TypeFormatter tf = new TypeFormatter(fmt);
 			Signature.Emit(Name, FunctionType.EmitFlags.ArgumentKind, fmt, cf, tf);
 			return sw.ToString();
 		}

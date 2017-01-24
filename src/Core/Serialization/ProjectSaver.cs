@@ -1,6 +1,6 @@
 ﻿#region License
 /* 
- * Copyright (C) 1999-2016 John Källén.
+ * Copyright (C) 1999-2017 John Källén.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -34,19 +34,19 @@ namespace Reko.Core.Serialization
         {
         }
 
-        public void Save(string projectAbsPath, Project project, TextWriter sw)
-        {
-            var sProject = Save(projectAbsPath, project);
-            Save(sProject, sw);
-        }
-
-        public void Save(Project_v4 sProject, TextWriter sw)
+        public void Save(Project_v4 sProject, XmlWriter xw)
         {
             var ser = SerializedLibrary.CreateSerializer_v4(typeof(Project_v4));
-            ser.Serialize(sw, sProject);
+            ser.Serialize(xw, sProject);
         }
 
-        public Project_v4 Save(string projectAbsPath, Project project)
+        /// <summary>
+        /// Given a <see cref="Project"/> serializes it into a <see cref="Project_v4"/>. 
+        /// </summary>
+        /// <param name="projectAbsPath"></param>
+        /// <param name="project"></param>
+        /// <returns></returns>
+        public Project_v4 Serialize(string projectAbsPath, Project project)
         {
             var inputs = new List<ProjectFile_v3>();
             inputs.AddRange(project.Programs.Select(p => VisitProgram(projectAbsPath, p)));
@@ -68,6 +68,7 @@ namespace Reko.Core.Serialization
                 Filename = ConvertToProjectRelativePath(projectAbsPath, program.Filename),
                 User = new UserData_v4
                 {
+                    Loader = program.User.Loader,
                     Procedures = program.User.Procedures
                         .Select(de => { de.Value.Address = de.Key.ToString(); return de.Value; })
                         .ToList(),

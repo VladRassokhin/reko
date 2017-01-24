@@ -1,6 +1,6 @@
 ﻿#region License
 /* 
- * Copyright (C) 1999-2016 John Källén.
+ * Copyright (C) 1999-2017 John Källén.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -232,6 +232,10 @@ namespace Reko.Evaluation
         {
         }
 
+        public void RemoveExpressionUse(Expression e)
+        {
+        }
+
         public bool IsUsedInPhi(Identifier id)
         {
             return false;
@@ -315,6 +319,7 @@ namespace Reko.Evaluation
 
             public Storage VisitFlagRegister(FlagRegister freg)
             {
+                ctx.RegisterState[freg] = Constant.Invalid;
                 return freg;
             }
 

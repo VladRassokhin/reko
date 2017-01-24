@@ -1,6 +1,6 @@
 #region License
 /* 
- * Copyright (C) 1999-2016 John Källén.
+ * Copyright (C) 1999-2017 John Källén.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -33,25 +33,39 @@ namespace Reko.Evaluation
 		private Constant cLeft;
 		private Constant cRight;
 		private Operator op;
+        private Address addr;
 
 		public bool Match(BinaryExpression binExp)
 		{
 			cLeft = binExp.Left as Constant; 
 			cRight = binExp.Right as Constant;
+			op = binExp.Operator;
 			if (cLeft != null && cRight != null && binExp.Operator != Operator.Eq)
 			{
 				if (!cLeft.IsReal && !cRight.IsReal)
 				{
-					op = binExp.Operator;
 					return true;
 				}
 			}
+            addr = binExp.Left as Address;
+            if (addr != null && cRight != null &&
+                (op == Operator.IAdd || op == Operator.ISub))
+            {
+                return true;
+            }
 			return false;
 		}
 
 		public Expression Transform()
 		{
-			return op.ApplyConstants(cLeft, cRight);
+            if (addr == null)
+            {
+                return op.ApplyConstants(cLeft, cRight);
+            }
+            else
+            {
+                return addr + cRight.ToInt32();
+            }
 		}
 	}
 }

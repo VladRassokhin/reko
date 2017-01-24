@@ -1,6 +1,6 @@
 #region License
 /* 
- * Copyright (C) 1999-2016 John Källén.
+ * Copyright (C) 1999-2017 John Källén.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -51,6 +51,18 @@ namespace Reko.UnitTests.Core
 			Assert.AreEqual(PrimitiveType.Word16, add.Right.DataType);
 			Assert.AreEqual("id - 0x0003", add.ToString());
 		}
+
+        [Test]
+        public void SubPointer()
+        {
+            var ptr = new Pointer(new StructureType("tmp", 16), 4);
+            var id = new Identifier("id", ptr, null);
+            var emitter = new CodeEmitterImpl();
+            var sub = emitter.ISub(id, 3);
+            Assert.AreEqual("(ptr (struct \"tmp\" 0010))", sub.DataType.ToString());
+            Assert.AreEqual(PrimitiveType.Word32, sub.Right.DataType);
+            Assert.AreEqual("id - 0x00000003", sub.ToString());
+        }
 
         [Test]
         public void Cond()

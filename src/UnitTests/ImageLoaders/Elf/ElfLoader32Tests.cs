@@ -1,6 +1,6 @@
 ﻿#region License
 /* 
- * Copyright (C) 1999-2016 John Källén.
+ * Copyright (C) 1999-2017 John Källén.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -21,6 +21,7 @@
 using NUnit.Framework;
 using Reko.Core;
 using Reko.Core.Configuration;
+using Reko.Core.Types;
 using Reko.ImageLoaders.Elf;
 using Rhino.Mocks;
 using System;
@@ -57,6 +58,7 @@ namespace Reko.UnitTests.ImageLoaders.Elf
             this.sc = new ServiceContainer();
             var cfgSvc = mr.Stub<IConfigurationService>();
             this.arch = mr.Stub<IProcessorArchitecture>();
+            arch.Stub(a => a.PointerType).Return(PrimitiveType.Pointer32);
             cfgSvc.Stub(c => c.GetArchitecture("x86-protected-32")).Return(arch);
             cfgSvc.Stub(c => c.GetArchitecture("mips-be-32")).Return(arch);
             sc.AddService<IConfigurationService>(cfgSvc);
@@ -133,10 +135,10 @@ namespace Reko.UnitTests.ImageLoaders.Elf
             };
         }
 
-        private void When_CreateLoader32()
+        private void When_CreateLoader32(bool big_endian)
         {
             this.eil = new ElfImageLoader(sc, "foo", this.bytes);
-            this.el32 = new ElfLoader32(eil, eih, this.bytes);
+            this.el32 = new ElfLoader32(eil, eih, this.bytes, big_endian ? ElfLoader.ELFDATA2MSB : ElfLoader.ELFDATA2LSB);
             el32.ProgramHeaders.AddRange(programHeaders);
             el32.Sections.AddRange(sections);
         }
@@ -153,7 +155,7 @@ namespace Reko.UnitTests.ImageLoaders.Elf
             Given_Section(".bss", 0x2008, "rw");
             mr.ReplayAll();
 
-            When_CreateLoader32();
+            When_CreateLoader32(false);
             var segmentMap = el32.LoadImageBytes(platform, this.bytes, Address.Ptr32(0x1000));
 
             ImageSegment segText;
@@ -239,7 +241,7 @@ namespace Reko.UnitTests.ImageLoaders.Elf
             Given_BE32_GOT(0x0000000, 0x00000000, 0x04000010, 0x04000000);
             mr.ReplayAll();
 
-            When_CreateLoader32();
+            When_CreateLoader32(true);
 
             el32.LocateGotPointers(program, syms);
             Assert.AreEqual("strcmp_GOT", syms[Address.Ptr32(0x10000008)].Name);

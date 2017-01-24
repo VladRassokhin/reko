@@ -1,6 +1,6 @@
 ﻿#region License
 /* 
- * Copyright (C) 1999-2016 John Källén.
+ * Copyright (C) 1999-2017 John Källén.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -73,7 +73,9 @@ namespace Reko.Scanning
             this.program = program;
             this.arch = program.Architecture;   // cached since it's used heavily.
             this.state = state;
-            this.eval = new ExpressionSimplifier(state);
+            this.eval = new ExpressionSimplifier(
+                state,
+                scanner.Services.RequireService<DecompilerEventListener>());
             this.addrStart = addr;
             this.blockCur = null;
         }
@@ -434,7 +436,7 @@ namespace Reko.Scanning
             {
                 if (!program.SegmentMap.IsValidAddress(addr))
                 {
-                    scanner.Warn(ric.Address, "Target address {0} is invalid.", addr);
+                    scanner.Warn(ric.Address, "Call target address {0} is invalid.", addr);
                     sig = new FunctionType();
                     EmitCall(
                         CreateProcedureConstant(
@@ -1017,7 +1019,7 @@ namespace Reko.Scanning
             var ppp = pc.Procedure as PseudoProcedure;
             if (ppp == null)
                 return null;
-            if (ppp.Name != "__syscall" || fn.Arguments.Length == 0)
+            if (ppp.Name != PseudoProcedure.Syscall || fn.Arguments.Length == 0)
                 return null;
 
             var vector = fn.Arguments[0] as Constant;

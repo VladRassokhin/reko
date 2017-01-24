@@ -1,6 +1,6 @@
 #region License
 /* 
- * Copyright (C) 1999-2016 John Källén.
+ * Copyright (C) 1999-2017 John Källén.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -46,9 +46,9 @@ namespace Reko.Core.Output
 
         //$TODO: move this to a language-specific class.
 		private static Dictionary<Operator,int> precedences;
-        private static Assoc [] associativities;
+        private static HashSet<Type> singleStatements;
 
-		private const int PrecedenceApplication = 1;
+        private const int PrecedenceApplication = 1;
 		private const int PrecedenceArrayAccess = 1;
 		private const int PrecedenceFieldAccess = 1;
 		private const int PrecedenceDereference = 2;
@@ -96,6 +96,8 @@ namespace Reko.Core.Output
 			precedences[Operator.Le] = 7;
 			precedences[Operator.Gt] = 7;
 			precedences[Operator.Ge] = 7;
+			precedences[Operator.Feq] = 7;
+			precedences[Operator.Fne] = 7;
 			precedences[Operator.Flt] = 7;
 			precedences[Operator.Fle] = 7;
 			precedences[Operator.Fgt] = 7;
@@ -112,14 +114,16 @@ namespace Reko.Core.Output
 			precedences[Operator.Cand] = 12;
 			precedences[Operator.Cor] = 13;
 
-            associativities = new [] {
-                Assoc.Left,     // Scope
-                Assoc.Left,     // array, application
-                Assoc.Right,    // Unary
-                Assoc.Left,     // member pointer deref
-                Assoc.Left,     // mul
+            singleStatements = new HashSet<Type>
+            {
+                typeof(AbsynReturn),
+                typeof(AbsynGoto),
+                typeof(AbsynBreak),
+                typeof(AbsynContinue),
+                typeof(AbsynAssignment),
+                typeof(AbsynSideEffect)
             };
-		}
+        }
 
 		private void ResetPresedence(int precedenceOld)
 		{
@@ -216,7 +220,7 @@ namespace Reko.Core.Output
                 writer.Write("<invalid>");
                 return;
             }
-            var pt = c.DataType as PrimitiveType;
+            var pt = c.DataType.ResolveAs<PrimitiveType>();
             if (pt != null)
             {
                 if (pt.Domain == Domain.Boolean)
@@ -656,7 +660,7 @@ namespace Reko.Core.Output
 			writer.Terminate();
 			WriteIndentedStatements(loop.Body, true);
 			
-			if (loop.Body.Count <= 1)
+			if (HasSmallBody(loop.Body))
                 writer.Indent();
 			writer.WriteKeyword("while");
             writer.Write(" (");
@@ -810,7 +814,7 @@ namespace Reko.Core.Output
 
 		public void Write(Procedure proc)
 		{
-			proc.Signature.Emit(proc.QualifiedName(), FunctionType.EmitFlags.None, writer, this, new TypeFormatter(writer, true));
+			proc.Signature.Emit(proc.QualifiedName(), FunctionType.EmitFlags.None, writer, this, new TypeFormatter(writer));
 			writer.WriteLine();
 			writer.Write("{");
             writer.WriteLine();
@@ -912,7 +916,7 @@ namespace Reko.Core.Output
 
         public void WriteIndentedStatements(List<AbsynStatement> stms, bool suppressNewline)
         {
-            if (stms.Count <= 1)
+            if (HasSmallBody(stms))
             {
                 writer.Indentation += writer.TabSize;
                 if (stms.Count == 0)
@@ -948,7 +952,18 @@ namespace Reko.Core.Output
             }
         }
 
-		public void WriteStatementList(List<AbsynStatement> list)
+        private bool HasSmallBody(List<AbsynStatement> stms)
+        {
+            return stms.Count == 0 ||
+                   (stms.Count == 1 && IsIrregularStatement(stms[0]));
+        }
+
+        private bool IsIrregularStatement(AbsynStatement stm)
+        {
+            return singleStatements.Contains(stm.GetType());
+        }
+
+        public void WriteStatementList(List<AbsynStatement> list)
 		{
 			foreach (AbsynStatement s in list)
 			{

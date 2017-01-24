@@ -1,6 +1,6 @@
 #region License
 /* 
- * Copyright (C) 1999-2016 John Källén.
+ * Copyright (C) 1999-2017 John Källén.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -20,12 +20,14 @@
 
 using Reko.Evaluation;
 using Reko.Core;
+using Reko.Analysis;
 using Reko.Core.Expressions;
 using Reko.Core.Operators;
 using Reko.Core.Types;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using Reko.Core.Services;
 
 namespace Reko.Evaluation 
 {
@@ -61,7 +63,7 @@ namespace Reko.Evaluation
         private IdProcConstRule idProcConstRule;
         private CastCastRule castCastRule;
 
-        public ExpressionSimplifier(EvaluationContext ctx)
+        public ExpressionSimplifier(EvaluationContext ctx, DecompilerEventListener listener)
         {
             this.ctx = ctx;
 
@@ -70,7 +72,7 @@ namespace Reko.Evaluation
             this.addMici = new Add_mul_id_c_id_Rule(ctx);
             this.dpbConstantRule = new DpbConstantRule();
             this.dpbdpbRule = new DpbDpbRule(ctx);
-            this.idConst = new IdConstant(ctx, new Unifier());
+            this.idConst = new IdConstant(ctx, new Unifier(), listener);
             this.idCopyPropagation = new IdCopyPropagationRule(ctx);
             this.idBinIdc = new IdBinIdc_Rule(ctx);
             this.sliceConst = new SliceConstant_Rule();
@@ -197,7 +199,6 @@ namespace Reko.Evaluation
                 Changed = true;
                 return constConstBin.Transform();
             }
-
             Identifier idLeft = left as Identifier;
             Identifier idRight = right as Identifier;
 
@@ -228,8 +229,6 @@ namespace Reko.Evaluation
             {
                 Changed = true;
                 var binOperator = binExp.Operator;
-                ctx.RemoveIdentifierUse(idLeft);
-                ctx.UseExpression(left);
                 Constant c;
                 if (binLeft.Operator == binOperator)
                 {
@@ -341,17 +340,19 @@ namespace Reko.Evaluation
                     PrimitiveType ptSrc = c.DataType as PrimitiveType;
                     if (ptSrc != null)
                     {
-                        if ((ptSrc.Domain & Domain.Integer) != 0)
+                        if (ptCast.Domain == Domain.Real)
+                        {
+                            if (ptSrc.Domain == Domain.Real &&
+                                ptCast.Size < ptSrc.Size)
+                            {
+                                Changed = true;
+                                return ConstantReal.Create(ptCast, c.ToReal64());
+                            }
+                        }
+                        else if ((ptSrc.Domain & Domain.Integer) != 0)
                         {
                             Changed = true;
                             return Constant.Create(ptCast, c.ToUInt64());
-                        }
-                        if (ptSrc.Domain == Domain.Real &&
-                            ptCast.Domain == Domain.Real &&
-                            ptCast.Size < ptSrc.Size)
-                        {
-                            Changed = true;
-                            return ConstantReal.Create(ptCast, c.ToReal64());
                         }
                     }
                 }
@@ -533,23 +534,62 @@ namespace Reko.Evaluation
 
         public virtual Expression VisitPhiFunction(PhiFunction pc)
         {
-            return pc;
-            /*
             var oldChanged = Changed;
             var args = pc.Arguments
                 .Select(a => a.Accept(this))
+                .Where(a =>
+                {
+                    var arg = SimplifyPhiArg(a);
+                    ctx.RemoveExpressionUse(arg);
+                    return ctx.GetValue(arg as Identifier) != pc;
+                })
                 .ToArray();
             Changed = oldChanged;
-            Expression e = args[0];
-            if (args.All(a => new ExpressionValueComparer().Equals(a, e)))
+
+            var cmp = new ExpressionValueComparer();
+            var e = args.FirstOrDefault();
+            if (e != null && args.All(a => cmp.Equals(a, e)))
             {
                 Changed = true;
+                ctx.UseExpression(e);
                 return e;
             }
             else
             {
+                ctx.UseExpression(pc);
                 return pc;
-            }*/
+            }
+        }
+
+        /// <summary>
+        /// VisitBinaryExpression method could not simplify following statements:
+        ///    y = x - const
+        ///    a = y + const
+        ///    x = phi(a, b)
+        /// to
+        ///    y = x - const
+        ///    a = x
+        ///    x = phi(a, b)
+        /// IdBinIdc rule class processes y as 'used in phi' and prevents propagation.
+        /// This method could be used to do such simplification (y + const ==> x)
+        /// </summary
+        private Expression SimplifyPhiArg(Expression arg)
+        {
+            BinaryExpression bin, binLeft;
+            Identifier idLeft;
+            if (
+                !arg.As(out bin) || !bin.Left.As(out idLeft) ||
+                !ctx.GetValue(idLeft).As(out binLeft)
+            )
+                return arg;
+            ctx.RemoveIdentifierUse(idLeft);
+            ctx.UseExpression(binLeft);
+            bin = new BinaryExpression(
+                bin.Operator,
+                bin.DataType,
+                binLeft,
+                bin.Right);
+            return bin.Accept(this);
         }
 
         public virtual Expression VisitPointerAddition(PointerAddition pa)

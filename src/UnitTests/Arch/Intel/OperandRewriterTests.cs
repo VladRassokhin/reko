@@ -1,6 +1,6 @@
 #region License
 /* 
- * Copyright (C) 1999-2016 John Källén.
+ * Copyright (C) 1999-2017 John Källén.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -68,7 +68,7 @@ namespace Reko.UnitTests.Arch.Intel
             };
             proc = Procedure.Create(procAddress, arch.CreateFrame());
 			state = (X86State) arch.CreateProcessorState();
-			orw = new OperandRewriter32(arch, proc.Frame, new FakeRewriterHost(program));
+			orw = new OperandRewriter32(arch, new ExpressionEmitter(), proc.Frame, new FakeRewriterHost(program));
 		}
 
 		[Test]

@@ -1,6 +1,6 @@
 ﻿#region License
 /* 
- * Copyright (C) 1999-2016 John Källén.
+ * Copyright (C) 1999-2017 John Källén.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -54,6 +54,9 @@ namespace Reko.Analysis
             {
                 return ass.Src;
             }
+            var phiAss = sid.DefStatement.Instruction as PhiAssignment;
+            if (phiAss != null && phiAss.Dst == sid.Identifier)
+                return phiAss.Src;
             return null;
         }
 
@@ -88,6 +91,14 @@ namespace Reko.Analysis
                 ssaIds[id].Uses.Remove(Statement);
         }
 
+        public void RemoveExpressionUse(Expression exp)
+        {
+            if (Statement == null)
+                return;
+            var xu = new ExpressionUseRemover(Statement, ssaIds);
+            exp.Accept(xu);
+        }
+
         public void SetValue(Identifier id, Expression value)
         {
             throw new NotSupportedException();
@@ -107,7 +118,7 @@ namespace Reko.Analysis
         {
             if (Statement == null)
                 return;
-            var xu = new ExpressionUseAdder(Statement, ssaIds);
+            var xu = new InstructionUseAdder(Statement, ssaIds);
             exp.Accept(xu);
         }
 

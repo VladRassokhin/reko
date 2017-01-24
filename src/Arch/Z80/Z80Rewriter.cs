@@ -1,6 +1,6 @@
 ﻿#region License
 /* 
- * Copyright (C) 1999-2016 John Källén.
+ * Copyright (C) 1999-2017 John Källén.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -35,7 +35,6 @@ namespace Reko.Arch.Z80
     public class Z80Rewriter : IEnumerable<RtlInstructionCluster>
     {
         private Z80ProcessorArchitecture arch;
-        private ProcessorState state;
         private Frame frame;
         private IRewriterHost host;
         private IEnumerator<Z80Instruction> dasm;
@@ -45,7 +44,6 @@ namespace Reko.Arch.Z80
         public Z80Rewriter(Z80ProcessorArchitecture arch, ImageReader rdr, ProcessorState state, Frame frame, IRewriterHost host)
         {
             this.arch = arch;
-            this.state = state;
             this.frame = frame;
             this.host = host;
             this.dasm = new Z80Disassembler(rdr).GetEnumerator();
@@ -73,12 +71,16 @@ namespace Reko.Arch.Z80
                 case Opcode.cp: RewriteCp(); break;
                 case Opcode.cpir: RewriteCpir(); break;
                 case Opcode.cpl: RewriteCpl(); break;
+                case Opcode.di: RewriteDi(); break;
                 case Opcode.daa: RewriteDaa(); break;
                 case Opcode.dec: RewriteDec(); break;
                 case Opcode.djnz: RewriteDjnz(dasm.Current.Op1); break;
+                case Opcode.ei: RewriteEi(); break;
                 case Opcode.ex: RewriteEx(); break;
                 case Opcode.exx: RewriteExx(); break;
                 case Opcode.hlt: emitter.SideEffect(host.PseudoProcedure("__hlt", VoidType.Instance)); break;
+                case Opcode.@in: RewriteIn(); break;
+                case Opcode.ini: RewriteIni(); break;
                 case Opcode.im:
                     emitter.SideEffect(host.PseudoProcedure("__im", VoidType.Instance, RewriteOp(dasm.Current.Op1)));
                     break;
@@ -96,6 +98,7 @@ namespace Reko.Arch.Z80
                 case Opcode.rr: RewriteRotation(PseudoProcedure.RorC, true); break;
                 case Opcode.rra: RewriteRotation(PseudoProcedure.Ror, true); break;
                 case Opcode.rrc: RewriteRotation(PseudoProcedure.RorC, true); break;
+                case Opcode.rrca: RewriteRotation(PseudoProcedure.RorC, true); break;
                 case Opcode.ldd: RewriteBlockInstruction(emitter.ISub, false); break;
                 case Opcode.lddr: RewriteBlockInstruction(emitter.ISub, true); break;
                 case Opcode.ldi: RewriteBlockInstruction(emitter.IAdd, false); break;
@@ -119,16 +122,12 @@ namespace Reko.Arch.Z80
                 case Opcode.xor: RewriteXor(); break;
 
                 //$TODO: Not implemented yet; feel free to implement these!
-        case Opcode.di: goto default;
-        case Opcode.ei: goto default;
         case Opcode.cpd: goto default;
         case Opcode.cpdr: goto default;
         case Opcode.cpi: goto default;
         case Opcode.ex_af: goto default;
-        case Opcode.@in: goto default;
         case Opcode.ind: goto default;
         case Opcode.indr: goto default;
-        case Opcode.ini: goto default;
         case Opcode.inir: goto default;
         case Opcode.otdr: goto default;
         case Opcode.otir: goto default;
@@ -139,7 +138,6 @@ namespace Reko.Arch.Z80
         case Opcode.retn: goto default;
         case Opcode.rld: goto default;
         case Opcode.rrd: goto default;
-        case Opcode.rrca: goto default;
         case Opcode.swap: goto default;
                 }
                 yield return rtlc;
@@ -199,7 +197,7 @@ namespace Reko.Arch.Z80
         {
             var dst = RewriteOp(dasm.Current.Op1);
             var src = RewriteOp(dasm.Current.Op2);
-            emitter.Assign(dst, emitter.ISub(dst, src));
+            emitter.Assign(dst, emitter.Or(dst, src));
             AssignCond(FlagM.ZF | FlagM.SF | FlagM.CF, dst);
             emitter.Assign(FlagGroup(FlagM.CF), Constant.False());
         }
@@ -345,7 +343,6 @@ namespace Reko.Arch.Z80
             var a = frame.EnsureRegister(Registers.a);
             var bc = frame.EnsureRegister(Registers.bc);
             var hl = frame.EnsureRegister(Registers.hl);
-            var tmp = frame.CreateTemporary(Registers.a.DataType);
             var z = FlagGroup(FlagM.ZF);
             emitter.Assign(z, emitter.Cond(emitter.ISub(a, emitter.LoadB(hl))));
             emitter.Assign(hl, emitter.IAdd(hl, 1));
@@ -383,6 +380,16 @@ namespace Reko.Arch.Z80
             var b = frame.EnsureRegister(Registers.b);
             emitter.Assign(b, emitter.ISub(b, 1));
             emitter.Branch(emitter.Ne0(b), ((AddressOperand)dst).Address, RtlClass.Transfer);
+        }
+
+        private void RewriteDi()
+        {
+            emitter.SideEffect(host.PseudoProcedure("__di", VoidType.Instance));
+        }
+
+        private void RewriteEi()
+        {
+            emitter.SideEffect(host.PseudoProcedure("__ei", VoidType.Instance));
         }
 
         private void RewriteEx()
@@ -514,6 +521,27 @@ namespace Reko.Arch.Z80
                 }
             }
             throw new NotImplementedException(string.Format("Rewriting of Z80 operand type {0} is not implemented yet.", op.GetType().FullName));
+        }
+
+        private void RewriteIn()
+        {
+            var dst = RewriteOp(dasm.Current.Op1);
+            var src = RewriteOp(dasm.Current.Op2);
+            emitter.Assign(dst, host.PseudoProcedure("__in", PrimitiveType.Byte, src));
+        }
+
+        private void RewriteIni()
+        {
+            var hl = frame.EnsureRegister(Registers.hl);
+            var c = frame.EnsureRegister(Registers.c);
+            var b = frame.EnsureRegister(Registers.b);
+            var Z = frame.EnsureFlagGroup(arch.GetFlagGroup("Z"));
+            emitter.Assign(
+                emitter.LoadB(hl),
+                host.PseudoProcedure("__in", PrimitiveType.Byte, c));
+            emitter.Assign(hl, emitter.IAdd(hl, 1));
+            emitter.Assign(b, emitter.ISub(b, 1));
+            emitter.Assign(Z, emitter.Cond(b));
         }
 
         private void RewriteOut()

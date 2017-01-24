@@ -1,6 +1,6 @@
 ﻿#region License
 /* 
- * Copyright (C) 1999-2016 John Källén.
+ * Copyright (C) 1999-2017 John Källén.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -57,6 +57,13 @@ namespace Reko.Environments.Ps3
 
         public override HashSet<RegisterStorage>  CreateImplicitArgumentRegisters()
         {
+            //$TODO: find out what registers are always preserved
+            return new HashSet<RegisterStorage>();
+        }
+
+        public override HashSet<RegisterStorage> CreateTrashedRegisters()
+        {
+            //$TODO: find out what registers are always trashed
             return new HashSet<RegisterStorage>();
         }
 

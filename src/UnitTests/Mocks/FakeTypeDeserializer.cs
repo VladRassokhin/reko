@@ -1,6 +1,6 @@
 ﻿#region License
 /* 
- * Copyright (C) 1999-2016 Pavel Tomin.
+ * Copyright (C) 1999-2017 Pavel Tomin.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -59,6 +59,11 @@ namespace Reko.UnitTests.Mocks
         public DataType VisitPointer(PointerType_v1 pointer)
         {
             return new Pointer(pointer.DataType.Accept(this), ptrSize);
+        }
+
+        public DataType VisitReference(ReferenceType_v1 pointer)
+        {
+            return new ReferenceTo(pointer.Referent.Accept(this));
         }
 
         public DataType VisitPrimitive(PrimitiveType_v1 primitive)

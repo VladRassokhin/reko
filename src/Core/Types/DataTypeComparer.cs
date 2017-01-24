@@ -1,6 +1,6 @@
 #region License
 /* 
- * Copyright (C) 1999-2016 John Källén.
+ * Copyright (C) 1999-2017 John Källén.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -160,6 +160,13 @@ namespace Reko.Core.Types
 					return d;
 				return Compare(mX.Pointee, mY.Pointee, ++count);
 			}
+
+            ReferenceTo rX = x as ReferenceTo;
+            ReferenceTo rY = y as ReferenceTo;
+            if (rX != null && rY != null)
+            {
+                return Compare(rX.Referent, rY.Referent, ++count);
+            }
 
 			StructureType sX = x as StructureType;
 			StructureType sY = y as StructureType;

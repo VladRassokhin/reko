@@ -1,6 +1,6 @@
 ﻿#region License
 /* 
- * Copyright (C) 1999-2016 John Källén.
+ * Copyright (C) 1999-2017 John Källén.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -105,6 +105,11 @@ namespace Reko.UnitTests.Environments.SysV
             }
 
             public DataType VisitPointer(PointerType_v1 pointer)
+            {
+                throw new NotImplementedException();
+            }
+
+            public DataType VisitReference(ReferenceType_v1 reference)
             {
                 throw new NotImplementedException();
             }

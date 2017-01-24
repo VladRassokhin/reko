@@ -1,6 +1,6 @@
  #region License
 /* 
- * Copyright (C) 1999-2016 John Källén.
+ * Copyright (C) 1999-2017 John Källén.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -202,7 +202,7 @@ namespace Reko.Analysis
         public void RewriteBlock(Block block)
         {
             StartProcessingBlock(block);
-            var propagator = new ExpressionPropagator(program.Architecture, se.Simplifier, ctx, flow);
+            var propagator = new ExpressionPropagator(program.Platform, se.Simplifier, ctx, flow);
             foreach (Statement stm in block.Statements)
             {
                 try
@@ -371,7 +371,21 @@ namespace Reko.Analysis
                     return ci;
                 }
             }
-            
+            // Hell node: will want to assume that registers which aren't
+            // guaranteed to be preserved by the ABI are trashed.
+            foreach (var r in ctx.RegisterState.Keys.ToList())
+            {
+                foreach (var reg in program.Platform.CreateTrashedRegisters())
+                {
+                    //$PERF: not happy about the O(n^2) algorithm,
+                    // but this is better in the analysis-development 
+                    // branch.
+                    if (r.Domain == reg.Domain)
+                    {
+                        ctx.RegisterState[r] = Constant.Invalid;
+                    }
+                }
+            }
             //$TODO: get trash information from signature?
             return ci;
         }
@@ -439,7 +453,7 @@ namespace Reko.Analysis
             private SymbolicEvaluationContext ctx;
 
             public TrashedExpressionSimplifier(TrashedRegisterFinder trf, SymbolicEvaluationContext ctx)
-                : base(ctx)
+                : base(ctx, trf.eventListener)
             {
                 this.trf = trf;
                 this.ctx = ctx;

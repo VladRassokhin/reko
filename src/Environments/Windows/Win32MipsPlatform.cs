@@ -1,6 +1,6 @@
 ﻿#region License
 /* 
- * Copyright (C) 1999-2016 John Källén.
+ * Copyright (C) 1999-2017 John Källén.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -59,6 +59,13 @@ namespace Reko.Environments.Windows
                 gp, sp
             };
         }
+
+        public override HashSet<RegisterStorage> CreateTrashedRegisters()
+        {
+            return new HashSet<RegisterStorage>();
+        }
+
+
 
         public override ProcedureSerializer CreateProcedureSerializer(ISerializedTypeVisitor<DataType> typeLoader, string defaultConvention)
         {

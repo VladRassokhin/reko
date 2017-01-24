@@ -1,6 +1,6 @@
 #region License
 /* 
- * Copyright (C) 1999-2016 John Källén.
+ * Copyright (C) 1999-2017 John Källén.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -27,17 +27,11 @@ namespace Reko.Core.Serialization
 {
 	public class ArgumentSerializer 
 	{
-		private ProcedureSerializer procSer;
 		private IProcessorArchitecture arch;
-		private Frame frame;
-        private int retAddressOnStack;
 
-        public ArgumentSerializer(ProcedureSerializer procSer, IProcessorArchitecture arch, Frame frame, int retAddressOnStack)
+        public ArgumentSerializer(IProcessorArchitecture arch)
 		{
-			this.procSer = procSer;
 			this.arch = arch;
-			this.frame = frame;
-            this.retAddressOnStack = retAddressOnStack;
         }
         
         public Argument_v1 Serialize(Identifier arg)

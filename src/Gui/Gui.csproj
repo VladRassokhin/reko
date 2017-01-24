@@ -98,6 +98,7 @@
     <Reference Include="System">
       <Name>System</Name>
     </Reference>
+    <Reference Include="System.configuration" />
     <Reference Include="System.Core" />
     <Reference Include="System.Data" />
     <Reference Include="System.Drawing" />
@@ -122,6 +123,7 @@
     <Compile Include="Controls\IRadioButton.cs" />
     <Compile Include="Controls\ITypeMarker.cs" />
     <Compile Include="Design\ArchitectureDesigner.cs" />
+    <Compile Include="Design\ImportDesigner.cs" />
     <Compile Include="Design\GlobalVariablesNodeDesigner.cs" />
     <Compile Include="Design\PlatformDesigner.cs" />
     <Compile Include="Design\ProgramResourceGroupDesigner.cs" />
@@ -139,6 +141,7 @@
     <Compile Include="IResourceEditorService.cs" />
     <Compile Include="Forms\IWorkerDialog.cs" />
     <Compile Include="Forms\ITextEncodingDialog.cs" />
+    <Compile Include="IViewImportsService.cs" />
     <Compile Include="JumpVectorNavigator.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="BlockNavigator.cs" />
@@ -313,6 +316,7 @@
     <Compile Include="Windows\LabelWrapper.cs" />
     <Compile Include="Windows\ListboxWrapper.cs" />
     <Compile Include="Windows\NumericUpDownWrapper.cs" />
+    <Compile Include="Windows\PreviewInteractor.cs" />
     <Compile Include="Windows\ProgressbarWrapper.cs" />
     <Compile Include="Windows\RadioButtonWrapper.cs" />
     <Compile Include="Windows\StyleStack.cs" />
@@ -470,6 +474,14 @@
     <Compile Include="Windows\ToolStripTextBoxWrapper.cs" />
     <Compile Include="Windows\Controls\TreeViewWrapper.cs" />
     <Compile Include="Windows\Controls\TypeMarker.cs" />
+    <Compile Include="Windows\ViewImportsControl.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="Windows\ViewImportsControl.Designer.cs">
+      <DependentUpon>ViewImportsControl.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Windows\ViewImportsPane.cs" />
+    <Compile Include="Windows\ViewImportsService.cs" />
     <Compile Include="Windows\ViewService.cs" />
     <Compile Include="Windows\WindowsDecompilerEventListener.cs" />
     <Compile Include="Windows\WindowsFormsDialogFactory.cs" />
@@ -639,6 +651,9 @@
     </EmbeddedResource>
     <EmbeddedResource Include="Windows\Forms\WorkerDialog.resx">
       <DependentUpon>WorkerDialog.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Windows\ViewImportsControl.resx">
+      <DependentUpon>ViewImportsControl.cs</DependentUpon>
     </EmbeddedResource>
   </ItemGroup>
   <Import Project="$(MSBuildBinPath)\Microsoft.CSharp.targets" />

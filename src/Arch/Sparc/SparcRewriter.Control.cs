@@ -1,6 +1,6 @@
 ﻿#region License
 /* 
- * Copyright (C) 1999-2016 John Källén.
+ * Copyright (C) 1999-2017 John Källén.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -18,6 +18,7 @@
  */
 #endregion
 
+using Reko.Core;
 using Reko.Core.Expressions;
 using Reko.Core.Machine;
 using Reko.Core.Rtl;
@@ -67,7 +68,6 @@ namespace Reko.Arch.Sparc
         private void RewriteJmpl()
         {
             ric.Class = RtlClass.Transfer;
-            var q = instrCur.Op3.GetType();
             var rDst = instrCur.Op3 as RegisterOperand;
             var src1 = RewriteOp(instrCur.Op1);
             var src2 = RewriteOp(instrCur.Op2);
@@ -104,7 +104,7 @@ namespace Reko.Arch.Sparc
                 cond,
                 new RtlSideEffect(
                     host.PseudoProcedure(
-                        "__syscall", 
+                        PseudoProcedure.Syscall, 
                         VoidType.Instance, 
                         SimplifySum(src1, src2))));
         }

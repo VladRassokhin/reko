@@ -1,6 +1,6 @@
 #region License
 /* 
- * Copyright (C) 1999-2016 John Källén.
+ * Copyright (C) 1999-2017 John Källén.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -39,6 +39,7 @@ namespace Reko.Arch.PowerPC
         private ReadOnlyCollection<RegisterStorage> fpregs;
         private ReadOnlyCollection<RegisterStorage> vregs;
         private ReadOnlyCollection<RegisterStorage> cregs;
+        private Dictionary<int, RegisterStorage> spregs;
 
         public RegisterStorage lr { get; private set; }
         public RegisterStorage ctr { get; private set; }
@@ -63,7 +64,7 @@ namespace Reko.Arch.PowerPC
             this.xer = new RegisterStorage("xer", 0x6B, 0, wordWidth);
             this.fpscr = new RegisterStorage("fpscr", 0x6C, 0, wordWidth);
 
-            this.cr = new FlagRegister("cr", wordWidth);
+            this.cr = new FlagRegister("cr", 0x80, wordWidth);
 
             regs = new ReadOnlyCollection<RegisterStorage>(
                 Enumerable.Range(0, 0x20)
@@ -85,6 +86,12 @@ namespace Reko.Arch.PowerPC
 
             cregs = new ReadOnlyCollection<RegisterStorage>(
                 regs.Skip(0x60).Take(0x8).ToList());
+
+            spregs = new Dictionary<int, RegisterStorage>
+            {
+                { 26, new RegisterStorage("srr0", 0x0100 + 26, 0, PrimitiveType.Word32) },
+                { 27, new RegisterStorage("srr1", 0x0100 + 27, 0, PrimitiveType.Word32) },
+            };
 
             //$REVIEW: using R1 as the stack register is a _convention_. It 
             // should be platform-specific at the very least.
@@ -108,6 +115,10 @@ namespace Reko.Arch.PowerPC
         public ReadOnlyCollection<RegisterStorage> CrRegisters
         {
             get { return cregs; }
+        }
+        public Dictionary<int, RegisterStorage> SpRegisters
+        {
+            get { return spregs; }
         }
 
         #region IProcessorArchitecture Members
@@ -227,6 +238,21 @@ namespace Reko.Arch.PowerPC
         public override ProcessorState CreateProcessorState()
         {
             return new PowerPcState(this);
+        }
+
+        public override SortedList<string, int> GetOpcodeNames()
+        {
+            return Enum.GetValues(typeof(Opcode))
+                .Cast<Opcode>()
+                .ToSortedList(v => Enum.GetName(typeof(Opcode), v), v => (int)v);
+        }
+
+        public override int? GetOpcodeNumber(string name)
+        {
+            Opcode result;
+            if (!Enum.TryParse(name, true, out result))
+                return null;
+            return (int)result;
         }
 
         public override RegisterStorage GetRegister(int i)

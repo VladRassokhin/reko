@@ -1,6 +1,6 @@
 ﻿#region License
 /* 
- * Copyright (C) 1999-2016 John Källén.
+ * Copyright (C) 1999-2017 John Källén.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -37,7 +37,7 @@ namespace Reko.UnitTests.Environments.Windows
             var p = new MsMangledNameParser(parse);
             var sp = p.Parse();
             var sb = new StringBuilder();
-            Assert.AreEqual(expected, new Renderer(sb).Render(p.Modifier, p.Scope, sp.Name, sp.Type));
+            Assert.AreEqual(expected, new Renderer(sb).Render(p.Modifier, p.Scope, sp.Item1, sp.Item2));
         }
 
         class Renderer : ISerializedTypeVisitor<StringBuilder>
@@ -115,6 +115,18 @@ namespace Reko.UnitTests.Environments.Windows
                 name = null;
                 pointer.DataType.Accept(this);
                 sb.AppendFormat(" *");
+                name = n;
+                if (name != null)
+                    sb.AppendFormat(" {0}", name);
+                return sb;
+            }
+
+            public StringBuilder VisitReference(ReferenceType_v1 reference)
+            {
+                var n = name;
+                name = null;
+                reference.Referent.Accept(this);
+                sb.AppendFormat(" ^");
                 name = n;
                 if (name != null)
                     sb.AppendFormat(" {0}", name);

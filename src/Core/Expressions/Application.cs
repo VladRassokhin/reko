@@ -1,6 +1,6 @@
 #region License
 /* 
- * Copyright (C) 1999-2016 John Källén.
+ * Copyright (C) 1999-2017 John Källén.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -21,6 +21,8 @@
 using Reko.Core.Operators;
 using Reko.Core.Types;
 using System;
+using System.Collections.Generic;
+using System.Linq;
 
 namespace Reko.Core.Expressions
 {
@@ -34,6 +36,11 @@ namespace Reko.Core.Expressions
 			this.Procedure = proc;
 			this.Arguments = arguments;
 		}
+
+        public override IEnumerable<Expression> Children
+        {
+            get { return new Expression[] { Procedure }.Concat(Arguments); }
+        }
 
         public Expression Procedure { get; set; }
         public Expression[] Arguments { get; set; }

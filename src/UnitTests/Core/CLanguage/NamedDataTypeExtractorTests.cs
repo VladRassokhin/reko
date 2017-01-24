@@ -1,6 +1,6 @@
 ﻿#region License
 /* 
- * Copyright (C) 1999-2016 John Källén.
+ * Copyright (C) 1999-2017 John Källén.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -116,7 +116,6 @@ namespace Reko.UnitTests.Core.CLanguage
             Assert.AreEqual("prim(Real,8)", nt.DataType.ToString());
         }
 
-
         [Test]
         public void NamedDataTypeExtractor_unsigned_short()
         {
@@ -125,7 +124,31 @@ namespace Reko.UnitTests.Core.CLanguage
             Assert.AreEqual("prim(UnsignedInt,2)", nt.DataType.ToString());
         }
 
-        [Test(Description = "If there are not reko attributes present, don't explicitly state the kind, but let the ABI rules decide.")]
+        [Test(Description = "Verifies call convention.")]
+        public void NamedDataTypeExtractor_ptrchar_stdcall_fn()
+        {
+            Run(new[] { SType(CTokenType.Char) },
+                new PointerDeclarator()
+                {
+                    Pointee = new CallConventionDeclarator()
+                    {
+                        Convention = CTokenType.__Stdcall,
+                        Declarator = new FunctionDeclarator()
+                        {
+                            Declarator = new IdDeclarator()
+                            {
+                                Name = "test"
+                            },
+                            Parameters = new List<ParamDecl>()
+                        }
+                    }
+                });
+            Assert.AreEqual(
+                "fn(__stdcall,arg(ptr(prim(Character,1))),()",
+                nt.DataType.ToString());
+        }
+
+        [Test(Description = "If no reko attributes are present, don't explicitly state the kind, but let the ABI rules decide.")]
         public void NamedDataTypeExtractor_GetArgumentKindFromAttributes_OtherAttrs()
         {
             var ndte = new NamedDataTypeExtractor(platform, new DeclSpec[0], symbolTable);
@@ -133,7 +156,7 @@ namespace Reko.UnitTests.Core.CLanguage
             Assert.IsNull(kind);
         }
 
-        [Test(Description = "If there are not reko attributes present, don't explicitly state the kind, but let the ABI rules decide.")]
+        [Test(Description = "If no reko attributes are present, don't explicitly state the kind, but let the ABI rules decide.")]
         public void NamedDataTypeExtractor_GetArgumentKindFromAttributes_null()
         {
             var ndte = new NamedDataTypeExtractor(platform, new DeclSpec[0], symbolTable);
@@ -148,7 +171,7 @@ namespace Reko.UnitTests.Core.CLanguage
             Assert.IsNull(kind);
         }
 
-        [Test(Description = "If there is a reko::arg attribute present, us it to determine kind.")]
+        [Test(Description = "If there is a reko::arg attribute present, use it to determine kind.")]
         public void NamedDataTypeExtractor_GetArgumentKindFromAttributes_reko_reg()
         {
             var ndte = new NamedDataTypeExtractor(platform, new DeclSpec[0], symbolTable);
@@ -168,6 +191,25 @@ namespace Reko.UnitTests.Core.CLanguage
             Assert.IsNotNull(kind);
             var sReg = (Register_v1)kind;
             Assert.AreEqual("D0", sReg.Name);
+        }
+
+        [Test(Description = "If there is a reko::fpu attribute present, use it to determine kind.")]
+        public void NamedDataTypeExtractor_GetArgumentKindFromAttributes_reko_x87_fpu()
+        {
+            var ndte = new NamedDataTypeExtractor(platform, new DeclSpec[0], symbolTable);
+            var kind = ndte.GetArgumentKindFromAttributes(
+                "arg",
+                new List<CAttribute>
+                {
+                    new CAttribute {
+                         Name = new QualifiedName("reko", "arg"),
+                         Tokens = new List<CToken> {
+                             new CToken(CTokenType.Id, "fpu")
+                         }
+                    }
+                });
+            Assert.IsNotNull(kind);
+            Assert.IsInstanceOf<FpuStackVariable_v1>(kind);
         }
     }
 }

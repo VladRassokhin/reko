@@ -1,6 +1,6 @@
 ﻿#region License
 /* 
- * Copyright (C) 1999-2016 John Källén.
+ * Copyright (C) 1999-2017 John Källén.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -127,7 +127,7 @@ namespace Reko.Arch.X86
 
         private void RewriteInt()
         {
-            emitter.SideEffect(host.PseudoProcedure("__syscall", VoidType.Instance, SrcOp(instrCur.op1)));
+            emitter.SideEffect(host.PseudoProcedure(PseudoProcedure.Syscall, VoidType.Instance, SrcOp(instrCur.op1)));
         }
 
         private void RewriteInto()
@@ -135,7 +135,7 @@ namespace Reko.Arch.X86
             emitter.If(
                 emitter.Test(ConditionCode.OV, orw.FlagGroup(FlagM.OF)),
                 new RtlSideEffect(
-                    host.PseudoProcedure("__syscall", VoidType.Instance, Constant.Byte(4))));
+                    host.PseudoProcedure(PseudoProcedure.Syscall, VoidType.Instance, Constant.Byte(4))));
         }
 
         private void RewriteJcxz()
@@ -175,8 +175,8 @@ namespace Reko.Arch.X86
             if (useFlags != 0)
             {
                 emitter.Branch(
-                    new BinaryExpression(Operator.Cand, PrimitiveType.Bool,
-                        new TestCondition(cc, orw.FlagGroup(useFlags)),
+                    emitter.Cand(
+                        emitter.Test(cc, orw.FlagGroup(useFlags)),
                         emitter.Ne0(cx)),
                     OperandAsCodeAddress(instrCur.op1),
                     RtlClass.ConditionalTransfer);

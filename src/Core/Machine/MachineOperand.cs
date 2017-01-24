@@ -1,6 +1,6 @@
 #region License
 /* 
- * Copyright (C) 1999-2016 John Källén.
+ * Copyright (C) 1999-2017 John Källén.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -22,6 +22,7 @@ using Reko.Core;
 using Reko.Core.Expressions;
 using Reko.Core.Types;
 using System;
+using System.Globalization;
 using System.IO;
 using System.Text;
 
@@ -66,6 +67,8 @@ namespace Reko.Core.Machine
 			return s + tmp.ToString(FormatString(c.DataType));
 		}
 
+        private static readonly char[] floatSpecials = new char[] { '.', 'e', 'E' };
+
         public static string FormatValue(Constant c)
         {
             var pt = (PrimitiveType)c.DataType;
@@ -75,7 +78,12 @@ namespace Reko.Core.Machine
             }
             else if (pt.Domain == Domain.Real)
             {
-                return c.ToReal64().ToString("G");
+                var str = c.ToReal64().ToString("G", CultureInfo.InvariantCulture);
+                if (str.IndexOfAny (floatSpecials) < 0)
+                {
+                    str = str + ".0";
+                }
+                return str;
             }
             else
                 return FormatUnsignedValue(c);
@@ -138,20 +146,34 @@ namespace Reko.Core.Machine
             return new ImmediateOperand(Constant.Byte(value));
         }
 
+        public static ImmediateOperand SByte(sbyte value)
+        {
+            return new ImmediateOperand(Constant.SByte(value));
+        }
+
+        public static ImmediateOperand UInt16(ushort value)
+        {
+            return new ImmediateOperand(Constant.UInt16(value));
+        }
+
+        public static ImmediateOperand UInt32(uint value)
+        {
+            return new ImmediateOperand(Constant.UInt32(value));
+        }
+
         public static ImmediateOperand Word32(int value)
         {
             return new ImmediateOperand(Constant.Word32(value));
         }
 
-        public static ImmediateOperand Word32(uint value) { return Word32((int) value); }
+        public static ImmediateOperand Word32(uint value) { return Word32((int)value); }
+
+        public static ImmediateOperand Word64(ulong value) { return Word64((long) value); }
 
         public static ImmediateOperand Word64(long value)
         {
             return new ImmediateOperand(Constant.Word64(value));
         }
-
-        public static ImmediateOperand Word64(ulong value) { return Word64((long) value); }
-
 
         public static ImmediateOperand Int32(int value)
         {
@@ -162,6 +184,8 @@ namespace Reko.Core.Machine
         {
             return new ImmediateOperand(Constant.Int16(value));
         }
+
+ 
 
         public static MachineOperand Word16(ushort value)
         {
@@ -182,6 +206,11 @@ namespace Reko.Core.Machine
             if (a == null)
                 throw new ArgumentNullException("a");
             Address = a;
+        }
+
+        public static AddressOperand Create(Address addr)
+        {
+            return new AddressOperand(addr, PrimitiveType.Create(Domain.Pointer, addr.DataType.Size));
         }
 
         public static AddressOperand Ptr16(ushort a)

@@ -1,6 +1,6 @@
 ﻿#region License
 /* 
- * Copyright (C) 1999-2016 John Källén.
+ * Copyright (C) 1999-2017 John Källén.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -42,9 +42,18 @@ namespace Reko.Arch.Mips
             this.StackRegister = Registers.sp;
         }
 
+        /// <summary>
+        /// If the architecture name contains "v6" we are a MIPS v6, which
+        /// has different instruction encodings.
+        /// </summary>
+        private bool IsVersion6OrLater
+        {
+            get { return this.Name.Contains("v6"); }
+        }
+
         public override IEnumerable<MachineInstruction> CreateDisassembler(ImageReader imageReader)
         {
-            return new MipsDisassembler(this, imageReader);
+            return new MipsDisassembler(this, imageReader, this.IsVersion6OrLater);
         }
 
         public override IEqualityComparer<MachineInstruction> CreateInstructionComparer(Normalize norm)
@@ -61,7 +70,7 @@ namespace Reko.Arch.Mips
         {
             return new MipsRewriter(
                 this,
-                new MipsDisassembler(this, rdr),
+                new MipsDisassembler(this, rdr, IsVersion6OrLater),
                 frame,
                 host);
         }
@@ -70,6 +79,23 @@ namespace Reko.Arch.Mips
         {
             var knownLinAddresses = knownAddresses.Select(a => (uint)a.ToLinear()).ToHashSet();
             return new MipsPointerScanner32(rdr, knownLinAddresses, flags).Select(l => Address.Ptr32(l));
+        }
+
+        public override SortedList<string, int> GetOpcodeNames()
+        {
+            return Enum.GetValues(typeof(Opcode))
+                .Cast<Opcode>()
+                .ToSortedList(
+                    v => v.ToString(),
+                    v => (int)v);
+        }
+
+        public override int? GetOpcodeNumber(string name)
+        {
+            Opcode result;
+            if (!Enum.TryParse(name, true, out result))
+                return null;
+            return (int)result;
         }
 
         public override RegisterStorage GetRegister(int i)

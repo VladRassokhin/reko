@@ -1,6 +1,6 @@
 ﻿#region License
 /* 
- * Copyright (C) 1999-2016 John Källén.
+ * Copyright (C) 1999-2017 John Källén.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -56,6 +56,11 @@ namespace Reko.Core.CLanguage
         }
 
         public int VisitPointer(PointerType_v1 pointer)
+        {
+            return 4;           //$BUGBUG: architecture dependent
+        }
+
+        public int VisitReference(ReferenceType_v1 pointer)
         {
             return 4;           //$BUGBUG: architecture dependent
         }

@@ -1,6 +1,6 @@
 #region License
 /* 
- * Copyright (C) 1999-2016 John Källén.
+ * Copyright (C) 1999-2017 John KÃ¤llÃ©n.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -37,6 +37,7 @@ using System.Linq;
 using System.Text;
 using System.Threading;
 using System.Windows.Forms;
+using System.Xml;
 
 namespace Reko.Gui.Forms
 {
@@ -205,6 +206,9 @@ namespace Reko.Gui.Forms
 
             var cgvSvc = svcFactory.CreateCallGraphViewService();
             sc.AddService<ICallGraphViewService>(cgvSvc);
+
+            var viewImpSvc = svcFactory.CreateViewImportService();
+            sc.AddService<IViewImportsService>(viewImpSvc);
         }
 
         public virtual TextWriter CreateTextWriter(string filename)
@@ -213,6 +217,16 @@ namespace Reko.Gui.Forms
                 return StreamWriter.Null;
             var fsSvc = Services.RequireService<IFileSystemService>();
             return new StreamWriter(fsSvc.CreateFileStream(filename, FileMode.Create, FileAccess.Write), new UTF8Encoding(false));
+        }
+
+        public virtual XmlWriter CreateXmlWriter(string filename)
+        {
+            if (string.IsNullOrEmpty(filename))
+                return new XmlTextWriter(StreamWriter.Null);
+            var fsSvc = Services.RequireService<IFileSystemService>();
+            var xw = new XmlTextWriter(fsSvc.CreateFileStream(filename, FileMode.Create, FileAccess.Write), new UTF8Encoding(false));
+            xw.Formatting = Formatting.Indented;
+            return xw;
         }
 
         public IPhasePageInteractor CurrentPhase
@@ -273,15 +287,30 @@ namespace Reko.Gui.Forms
             }
         }
 
+        /// <summary>
+        /// Prompts the user for a metadata file and adds to the project.
+        /// </summary>
         public void AddMetadataFile()
         {
             var fileName = uiSvc.ShowOpenFileDialog(null);
             if (fileName == null)
                 return;
             mru.Use(fileName);
-            var projectLoader = new ProjectLoader(Services, loader, this.decompilerSvc.Decompiler.Project);
-            var metadata = projectLoader.LoadMetadataFile(fileName);
-            decompilerSvc.Decompiler.Project.MetadataFiles.Add(metadata);
+            var projectLoader = new ProjectLoader(
+                Services,
+                loader,
+                this.decompilerSvc.Decompiler.Project,
+                this.sc.RequireService<DecompilerEventListener>());
+
+            try
+            {
+                var metadata = projectLoader.LoadMetadataFile(fileName);
+                decompilerSvc.Decompiler.Project.MetadataFiles.Add(metadata);
+            }
+            catch (Exception e)
+            {
+                uiSvc.ShowError(e, "An error occured while parsing the metadata file {0}", fileName);
+            }
         }
 
         public bool AssembleFile()
@@ -318,42 +347,48 @@ namespace Reko.Gui.Forms
                 if (uiSvc.ShowModalDialog(dlg) != DialogResult.OK)
                     return true;
 
-                mru.Use(dlg.FileName.Text);
-
                 var rawFileOption = (ListOption)dlg.RawFileTypes.SelectedValue;
-                string archName;
-                string envName;
-                string sAddr;
-                RawFileElement raw = null;
+                string archName = null;
+                string envName = null;
+                string sAddr = null;
+                string loader = null;
+                EntryPointElement entry = null;
+
                 if (rawFileOption != null && rawFileOption.Value != null)
                 {
+                    RawFileElement raw = null;
                     raw = (RawFileElement)rawFileOption.Value;
+                    loader = raw.Loader;
                     archName = raw.Architecture;
                     envName = raw.Environment;
                     sAddr = raw.BaseAddress;
+                    entry = raw.EntryPoint;
                 }
-                else
-                {
-                    var archOption = (ListOption)dlg.Architectures.SelectedValue;
-                    archName = (string)archOption.Value;
-                    var envOption = (OperatingEnvironment)((ListOption)dlg.Platforms.SelectedValue).Value;
-                    envName = envOption != null? envOption.Name : null;
-                    sAddr = dlg.AddressTextBox.Text.Trim();
-                }
+                archName = archName ?? (string) ((ListOption)dlg.Architectures.SelectedValue).Value;
+                var envOption = (OperatingEnvironment)((ListOption)dlg.Platforms.SelectedValue).Value;
+                envName =  envName ?? (envOption != null? envOption.Name : null);
+                sAddr = sAddr ?? dlg.AddressTextBox.Text.Trim();
 
                 arch = config.GetArchitecture(archName);
                 if (arch == null)
                     throw new InvalidOperationException(string.Format("Unable to load {0} architecture.", archName));
                 Address addrBase;
-                    if (!arch.TryParseAddress(sAddr, out addrBase))
-                        throw new ApplicationException(string.Format("'{0}' doesn't appear to be a valid address.", sAddr));
-                    OpenBinary(dlg.FileName.Text, (f) =>
-                        pageInitial.OpenBinaryAs(
-                            f,
-                            archName,
-                            envName,
-                            addrBase,
-                            raw));
+                if (!arch.TryParseAddress(sAddr, out addrBase))
+                    throw new ApplicationException(string.Format("'{0}' doesn't appear to be a valid address.", sAddr));
+
+                var details = new LoadDetails
+                {
+                    LoaderName = loader,
+                    ArchitectureName = archName,
+                    PlatformName = envName,
+                    LoadAddress = sAddr,
+                    EntryPoint = entry,
+                };
+
+                OpenBinary(dlg.FileName.Text, (f) =>
+                    pageInitial.OpenBinaryAs(
+                        f,
+                        details));
             }
             catch (Exception ex)
             {
@@ -639,9 +674,12 @@ namespace Reko.Gui.Forms
                 mru.Use(newName);
             }
 
-            using (TextWriter sw = CreateTextWriter(ProjectFileName))
+            var fsSvc = Services.RequireService<IFileSystemService>();
+            using (var xw = fsSvc.CreateXmlWriter(ProjectFileName))
             {
-                new ProjectSaver(sc).Save(ProjectFileName, decompilerSvc.Decompiler.Project, sw);
+                var saver = new ProjectSaver(sc);
+                var sProject = saver.Serialize(ProjectFileName, decompilerSvc.Decompiler.Project);
+                saver.Save(sProject, xw);
             }
             return true;
         }

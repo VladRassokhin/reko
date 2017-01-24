@@ -1,6 +1,6 @@
 #region License
 /* 
- * Copyright (C) 1999-2016 John Källén.
+ * Copyright (C) 1999-2017 John Källén.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -41,7 +41,7 @@ namespace Reko.UnitTests.Core
         {
             sw = new StringWriter();
             var tf = new TextFormatter(sw) { Indentation = 0 };
-            tyfo = new TypeFormatter(tf, false);
+            tyfo = new TypeFormatter(tf);
             tf = new TextFormatter(sw) { Indentation = 0 };
             tyreffo = new TypeReferenceFormatter(tf);
         }

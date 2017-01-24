@@ -1,6 +1,6 @@
 ﻿#region License
 /* 
- * Copyright (C) 1999-2016 John Källén.
+ * Copyright (C) 1999-2017 John Källén.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -127,18 +127,14 @@ namespace Reko.Arch.PowerPC
             return arch.CrRegisters[(int)ccOp.condition >> 2];
         }
         
-        private void RewriteCtrBranch(bool updateLinkRegister, bool toLinkRegister, Operator decOp, bool ifSet)
+        private void RewriteCtrBranch(bool updateLinkRegister, bool toLinkRegister, Func<Expression,Expression,Expression> decOp, bool ifSet)
         {
             cluster.Class = RtlClass.ConditionalTransfer;
             var ctr = frame.EnsureRegister(arch.ctr);
             var ccOp = instr.op1 as ConditionOperand;
             Expression dest;
 
-            Expression cond = new BinaryExpression(
-                decOp, 
-                PrimitiveType.Bool,
-                ctr,
-                Constant.Zero(ctr.DataType));
+            Expression cond = decOp(ctr, Constant.Zero(ctr.DataType));
 
             if (ccOp != null)
             {
@@ -213,7 +209,7 @@ namespace Reko.Arch.PowerPC
 
         private void RewriteSc()
         {
-            emitter.SideEffect(host.PseudoProcedure("__syscall", arch.WordWidth));
+            emitter.SideEffect(host.PseudoProcedure(PseudoProcedure.Syscall, arch.WordWidth));
         }
     }
 }

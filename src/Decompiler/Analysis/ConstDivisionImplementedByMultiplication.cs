@@ -1,6 +1,6 @@
 ﻿#region License
 /* 
- * Copyright (C) 1999-2016 John Källén.
+ * Copyright (C) 1999-2017 John Källén.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -54,10 +54,12 @@ namespace Reko.Analysis
         private SsaState ssa;
         private Rational bestRational;
         private Identifier idOrig;
+        private ExpressionEmitter m;
 
         public ConstDivisionImplementedByMultiplication(SsaState ssa)
         {
             this.ssa = ssa;
+            this.m = new ExpressionEmitter();
         }
 
         public void Transform()
@@ -74,47 +76,11 @@ namespace Reko.Analysis
         /// <summary>
         /// Find the best rational that approximates the fraction 
         /// </summary>
-        /// <param name="factor"></param>
+        /// <param name="factor">Divisor &lt;1 1 scaled by 2^32.</param>
         /// <returns></returns>
-        public Rational FindBestRational(uint factor)
+        public static Rational FindBestRational(uint factor)
         {
-            double fraction = (double)factor * Math.Pow(2.0, -32);
-            return GetMediantSequence(fraction)
-                .TakeWhile(x => x.Denominator <= 1000)
-                .OrderBy(x => Math.Abs(x.ToDouble() - fraction))
-                .FirstOrDefault();
-        }
-
-        /// <summary>
-        /// Returns a sequence of rationals that brackets the specified 
-        /// fraction. Mediants are used to construct Stern-Brocot trees
-        /// (https://en.wikipedia.org/wiki/Stern%E2%80%93Brocot_tree)
-        /// to locate the closest rational approximantion to a floating 
-        /// point number.
-        /// </summary>
-        /// <param name="fraction"></param>
-        /// <returns></returns>
-        private IEnumerable<Rational> GetMediantSequence(double fraction)
-        { 
-            Debug.Assert(fraction > 0);
-            Debug.Assert(fraction < 1);
-            var lower = Rational.FromIntegers(0, 1);
-            var upper = Rational.FromIntegers(1, 1);
-            while (true)
-            {
-                var mediant = Rational.FromIntegers(
-                    lower.Numerator + upper.Numerator,
-                    lower.Denominator + upper.Denominator);
-                //Debug.Print("mediant: {0}", mediant);
-                yield return mediant;
-                var approx = mediant.ToDouble();
-                if (fraction < approx)
-                    upper = mediant;
-                else if (fraction > approx)
-                    lower = mediant;
-                else
-                    break;
-            }
+            return Rational.FromDouble(factor * Math.Pow(2.0, -32));
         }
 
         /// <summary>
@@ -228,9 +194,7 @@ namespace Reko.Analysis
             var eNum = dividend;
             if (bestRational.Numerator != 1)
             {
-                eNum = new BinaryExpression(
-                    Operator.IMul,
-                    eNum.DataType,
+                eNum = m.IMul(
                     eNum,
                     Constant.Int32((int)bestRational.Numerator));
             }
@@ -239,41 +203,10 @@ namespace Reko.Analysis
             sidOrig.Uses.Remove(sidDst.DefStatement);
             sidDst.DefStatement.Instruction = new Assignment(
                 idDst,
-                new BinaryExpression(
-                    Operator.SDiv,
-                    eNum.DataType,
+                m.SDiv(
                     eNum,
                     Constant.Int32((int)bestRational.Denominator)));
             return sidDst.DefStatement.Instruction as Assignment;
-        }
-
-        public static Rational ContinuedFraction(double x)
-        {
-            Debug.Assert(0 <= x && x < 1.0);
-            int scale = 1;
-            while (x < 0.5)
-            {
-                x *= 2.0;
-                scale *= 2;
-            }
-            var a = new List<int>();
-            while (x > 1e-6 && a.Count < 10)
-            {
-                var r = 1.0 / x;
-                int a1 = (int)r;
-                x = r - a1;
-                a.Add(a1);
-            }
-            Debug.Print("cfrac [{0}]", string.Join(", ", a));
-            var rat = new Rational(0, 1);
-            for (int i = a.Count-1; i >= 0; --i)
-            {
-                rat = a[i] + rat;
-                rat = rat.Reciprocal();
-            }
-            rat = rat / scale;
-            Debug.Print("crat: {0}", rat);
-            return rat;
         }
     }
 }

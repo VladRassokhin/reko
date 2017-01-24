@@ -1,6 +1,6 @@
 ﻿#region License
 /* 
- * Copyright (C) 1999-2016 John Källén.
+ * Copyright (C) 1999-2017 John Källén.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -70,6 +70,7 @@ namespace Reko.UnitTests.Scanning
                 .SelectMany(w => w)
                 .ToArray());
             var arch = new MipsLe32Architecture();
+            arch.Name = "mips-le-32";
             CreateProgram(image, arch);
         }
 

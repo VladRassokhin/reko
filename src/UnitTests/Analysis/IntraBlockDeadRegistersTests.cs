@@ -1,6 +1,6 @@
 ﻿#region License
 /* 
- * Copyright (C) 1999-2016 John Källén.
+ * Copyright (C) 1999-2017 John Källén.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -98,7 +98,7 @@ namespace Reko.UnitTests.Analysis
         {
             RunTest(m =>
             {
-                var flags = new FlagRegister("flags", PrimitiveType.Word32);
+                var flags = new FlagRegister("flags", 8, PrimitiveType.Word32);
                 var CN = m.Frame.EnsureFlagGroup(flags, 0x3, "CN", PrimitiveType.Byte);
                 var C = m.Frame.EnsureFlagGroup(flags, 0x1, "C", PrimitiveType.Bool);
                 var N = m.Frame.EnsureFlagGroup(flags, 0x2, "N", PrimitiveType.Bool);
@@ -122,7 +122,7 @@ namespace Reko.UnitTests.Analysis
         {
             RunTest(m =>
             {
-                var flags = new FlagRegister("flags", PrimitiveType.Word32);
+                var flags = new FlagRegister("flags", 17, PrimitiveType.Word32);
                 var CN = m.Frame.EnsureFlagGroup(flags, 0x3, "CN", PrimitiveType.Byte);
                 var C = m.Frame.EnsureFlagGroup(flags, 0x1, "C", PrimitiveType.Bool);
                 var N = m.Frame.EnsureFlagGroup(flags, 0x2, "N", PrimitiveType.Bool);

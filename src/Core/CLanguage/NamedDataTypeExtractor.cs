@@ -1,6 +1,6 @@
 ﻿#region License
 /* 
- * Copyright (C) 1999-2016 John Källén.
+ * Copyright (C) 1999-2017 John Källén.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -224,13 +224,19 @@ namespace Reko.Core.CLanguage
                 if (attr.Name.Components == null || attr.Name.Components.Length != 2 ||
                     attr.Name.Components[0] != "reko" || attr.Name.Components[1] != paramType)
                     continue;
-                if (attr.Tokens[0].Type != CTokenType.Register ||
-                    attr.Tokens[1].Type != CTokenType.Comma)
-                    continue;
-                // We have a reko::arg(register, prefix; get the register.
-                if (attr.Tokens.Count < 1 || attr.Tokens[2].Type != CTokenType.StringLiteral)
-                    throw new FormatException("[[reko::arg(register,<name>)]] attribute expects a register name.");
-                kind = new Register_v1 { Name = (string)attr.Tokens[2].Value };
+                if (attr.Tokens[0].Type == CTokenType.Register &&
+                    attr.Tokens[1].Type == CTokenType.Comma)
+                {
+                    // We have a reko::arg(register, prefix; get the register.
+                    if (attr.Tokens.Count < 1 || attr.Tokens[2].Type != CTokenType.StringLiteral)
+                        throw new FormatException("[[reko::arg(register,<name>)]] attribute expects a register name.");
+                    kind = new Register_v1 { Name = (string)attr.Tokens[2].Value };
+                } else if (attr.Tokens[0].Type == CTokenType.Id &&
+                           (string)attr.Tokens[0].Value == "fpu")
+                {
+                    // We have a reko::fpu prefix; mark as FPU
+                    kind = new FpuStackVariable_v1();
+                }
             }
             return kind;
         }
@@ -273,7 +279,15 @@ namespace Reko.Core.CLanguage
         
         public Func<NamedDataType,NamedDataType> VisitCallConvention(CallConventionDeclarator conv)
         {
+            ApplyCallConvention(conv.Convention);
             return (nt) => conv.Declarator.Accept(this)(nt);
+        }
+
+        private void ApplyCallConvention(CTokenType convention)
+        {
+            if (callingConvention != CTokenType.None)
+                throw new FormatException(string.Format("Unexpected extra calling convention specifier '{0}'.", callingConvention));
+            callingConvention = convention;
         }
 
         public SerializedType VisitSimpleType(SimpleTypeSpec simpleType)
@@ -526,9 +540,7 @@ namespace Reko.Core.CLanguage
             case CTokenType.__Cdecl:
             case CTokenType.__Fastcall:
             case CTokenType.__Stdcall:
-                if (callingConvention != CTokenType.None)
-                    throw new FormatException(string.Format("Unexpected extra calling convention specifier '{0}'.", callingConvention));
-                callingConvention = storageClassSpec.Type;
+                ApplyCallConvention(storageClassSpec.Type);
                 break;
             }
             return dt;       //$TODO make use of CDECL.

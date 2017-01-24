@@ -1,6 +1,6 @@
 ﻿#region License
 /* 
- * Copyright (C) 1999-2016 John Källén.
+ * Copyright (C) 1999-2017 John Källén.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -39,6 +39,37 @@ namespace Reko.Core
                 den /= g;
             }
             return new Rational(num, den);
+        }
+
+        /// <summary>
+        /// Use a sequence of continued fractions to find a good 
+        /// rational approximation to the double precition provided number
+        /// </summary>
+        /// <remarks>
+        /// http://jonisalonen.com/2012/converting-decimal-numbers-to-ratios/
+        /// </remarks>
+        /// <param name="x"></param>
+        /// <returns></returns>
+        public static Rational FromDouble(double x)
+        {
+            double tolerance = 1.0E-6;
+            int h1 = 1; int h2 = 0;
+            int k1 = 0; int k2 = 1;
+            var b = x;
+            do
+            {
+                var a = (int)Math.Floor(b);
+                var aux = h1;
+                h1 = a * h1 + h2;
+                h2 = aux;
+
+                aux = k1;
+                k1 = a * k1 + k2;
+                k2 = aux;
+
+                b = 1 / (b - a);
+            } while (Math.Abs(x - h1 / (double)k1) > x * tolerance);
+            return Rational.FromIntegers(h1, k1);
         }
 
         public readonly long Numerator;

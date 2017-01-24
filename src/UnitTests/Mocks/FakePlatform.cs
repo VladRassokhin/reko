@@ -1,6 +1,6 @@
 ﻿#region License
 /* 
- * Copyright (C) 1999-2016 John Källén.
+ * Copyright (C) 1999-2017 John Källén.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -41,6 +41,12 @@ namespace Reko.UnitTests.Mocks
         public override HashSet<RegisterStorage> CreateImplicitArgumentRegisters()
         {
             return Test_CreateImplicitArgumentRegisters();
+        }
+
+        public Func<HashSet<RegisterStorage>> Test_CreateTrashedRegisters;
+        public override HashSet<RegisterStorage> CreateTrashedRegisters()
+        {
+            return Test_CreateTrashedRegisters();
         }
 
         public Func<ISerializedTypeVisitor<DataType>, string, ProcedureSerializer> Test_CreateProcedureSerializer;

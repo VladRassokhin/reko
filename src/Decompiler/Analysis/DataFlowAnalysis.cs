@@ -1,6 +1,6 @@
 #region License
 /* 
- * Copyright (C) 1999-2016 John Källén.
+ * Copyright (C) 1999-2017 John KÃ¤llÃ©n.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -87,9 +87,15 @@ namespace Reko.Analysis
                     var sst = new SsaTransform(flow, proc, importResolver, doms, new HashSet<RegisterStorage>());
                     var ssa = sst.SsaState;
 
-                    var icrw = new IndirectCallRewriter(program, ssa, eventListener);
-                    icrw.Rewrite();
+                    var vp = new ValuePropagator(program.Architecture, ssa, eventListener);
 
+                    sst.RenameFrameAccesses = true;
+                    var icrw = new IndirectCallRewriter(program, ssa, eventListener);
+                    while (!eventListener.IsCanceled() && icrw.Rewrite())
+                    {
+                        vp.Transform();
+                        sst.Transform();
+                    }
                     var cce = new ConditionCodeEliminator(ssa, program.Platform);
                     cce.Transform();
                     //var cd = new ConstDivisionImplementedByMultiplication(ssa);
@@ -97,7 +103,6 @@ namespace Reko.Analysis
 
                     DeadCode.Eliminate(proc, ssa);
 
-                    var vp = new ValuePropagator(program.Architecture, ssa);
                     vp.Transform();
                     DeadCode.Eliminate(proc, ssa);
 
@@ -260,7 +265,7 @@ namespace Reko.Analysis
                 // are propagated to the corresponding call sites.
                 var cce = new ConditionCodeEliminator(ssa, program.Platform);
                 cce.Transform();
-                var vp = new ValuePropagator(program.Architecture, ssa);
+                var vp = new ValuePropagator(program.Architecture, ssa, eventListener);
                 vp.Transform();
 
                 // Now compute SSA for the stack-based variables as well. That is:

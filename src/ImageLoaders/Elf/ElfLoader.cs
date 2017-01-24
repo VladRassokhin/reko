@@ -1,6 +1,6 @@
 ﻿#region License
 /* 
- * Copyright (C) 1999-2016 John Källén.
+ * Copyright (C) 1999-2017 John Källén.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -22,6 +22,7 @@ using Reko.Core;
 using Reko.Core.Configuration;
 using Reko.Core.Lib;
 using Reko.Core.Types;
+using Reko.ImageLoaders.Elf.Relocators;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -49,6 +50,9 @@ namespace Reko.ImageLoaders.Elf
         public const int ELFOSABI_NSK = 14;     // Hewlett-Packard Non-Stop Kernel 
         public const int ELFOSABI_AROS = 15;    // Amiga Research OS 
         public const int ELFOSABI_FENIXOS = 16; // The FenixOS highly scalable multi-core OS 
+        
+        public const byte ELFDATA2LSB = 1;
+        public const byte ELFDATA2MSB = 2;
 
         public const int ELFOSABI_CELL_LV2 = 0x66;     // PS/3 has this in its files
         public const uint SHF_WRITE = 0x1;
@@ -69,16 +73,18 @@ namespace Reko.ImageLoaders.Elf
         public const uint PF_W = 2;
         public const uint PF_X = 1;
 
+        protected ElfMachine machine;
         protected ElfImageLoader imgLoader;
         protected Address m_uPltMin;
         protected Address m_uPltMax;
         protected IPlatform platform;
         protected byte[] rawImage;
 
-        protected ElfLoader(ElfImageLoader imgLoader, ushort machine)
+        protected ElfLoader(ElfImageLoader imgLoader, ushort machine, byte endianness)
         {
             this.imgLoader = imgLoader;
-            this.Architecture = CreateArchitecture(machine);
+            this.machine = (ElfMachine) machine;
+            this.Architecture = CreateArchitecture(machine, endianness);
             this.Symbols = new Dictionary<ElfSection, List<ElfSymbol>>();
             this.Sections = new List<ElfSection>();
             this.ExternalProcedures = new Dictionary<Address, ExternalProcedure>();
@@ -134,7 +140,7 @@ namespace Reko.ImageLoaders.Elf
             return mems;
         }
 
-        protected IProcessorArchitecture CreateArchitecture(ushort machineType)
+        protected IProcessorArchitecture CreateArchitecture(ushort machineType, byte endianness)
         {
             var cfgSvc = Services.RequireService<IConfigurationService>();
             string arch;
@@ -145,10 +151,26 @@ namespace Reko.ImageLoaders.Elf
             case ElfMachine.EM_386: arch = "x86-protected-32"; break;
             case ElfMachine.EM_X86_64: arch = "x86-protected-64"; break;
             case ElfMachine.EM_68K: arch = "m68k"; break;
-            case ElfMachine.EM_MIPS: arch = "mips-be-32"; break;
+            case ElfMachine.EM_MIPS:
+                if (endianness == ELFDATA2LSB)
+                {
+                    arch = "mips-le-32";
+                }
+                else if (endianness == ELFDATA2MSB)
+                {
+                    arch = "mips-be-32";
+                }
+                else
+                {
+                    throw new NotSupportedException(string.Format("The MIPS architecture does not support ELF endianness value {0}", endianness));
+                }
+                break;
             case ElfMachine.EM_PPC: arch = "ppc32"; break;
             case ElfMachine.EM_PPC64: arch = "ppc64"; break;
             case ElfMachine.EM_ARM: arch = "arm"; break;
+            case ElfMachine.EM_XTENSA: arch = "xtensa"; break;
+            case ElfMachine.EM_AVR: arch = "avr8"; break;
+            case ElfMachine.EM_RISCV: arch = "risc-v"; break;
             default:
                 throw new NotSupportedException(string.Format("Processor format {0} is not supported.", machineType));
             }
@@ -164,9 +186,7 @@ namespace Reko.ImageLoaders.Elf
         protected ImageSymbol CreateImageSymbol(ElfSymbol sym, uint headerType)
         {
             SymbolType st;
-            if (sym.SectionIndex == 0 && sym.Type == ElfSymbolType.STT_FUNC) //$DEBUG
-                sym.ToString();
-            if (sym.SectionIndex == 0 || sym.SectionIndex >= Sections.Count)
+            if (sym.SectionIndex >= Sections.Count)
                 return null;
             if (!mpSymbolType.TryGetValue(sym.Type, out st))
                 return null;
@@ -455,9 +475,9 @@ namespace Reko.ImageLoaders.Elf
             return imgLoader.ReadAsciiString(sect.sh_offset + offset);
         }
 
-        protected bool IsLoadable(ulong p_vaddr, ProgramHeaderType p_type)
+        protected bool IsLoadable(ulong p_pmemsz, ProgramHeaderType p_type)
         {
-            if (p_vaddr == 0)
+            if (p_pmemsz == 0)
                 return false;
             return (p_type == ProgramHeaderType.PT_LOAD ||
                     p_type == ProgramHeaderType.PT_DYNAMIC);
@@ -485,8 +505,8 @@ namespace Reko.ImageLoaders.Elf
     {
         private byte osAbi;
 
-        public ElfLoader64(ElfImageLoader imgLoader, Elf64_EHdr elfHeader, byte[] rawImage, byte osAbi)
-            : base(imgLoader, elfHeader.e_machine)
+        public ElfLoader64(ElfImageLoader imgLoader, Elf64_EHdr elfHeader, byte[] rawImage, byte osAbi, byte endianness)
+            : base(imgLoader, elfHeader.e_machine, endianness)
         {
             this.Header64 = elfHeader;
             this.osAbi = osAbi;
@@ -533,6 +553,7 @@ namespace Reko.ImageLoaders.Elf
             {
             case ElfMachine.EM_X86_64: return new x86_64Relocator(this);
             case ElfMachine.EM_PPC64: return new PpcRelocator64(this);
+            case ElfMachine.EM_RISCV: return new RiscVRelocator64(this);
             }
             return base.CreateRelocator(machine);
         }
@@ -682,14 +703,14 @@ namespace Reko.ImageLoaders.Elf
         {
             var segMap = AllocateMemoryAreas(
                 ProgramHeaders64
-                    .Where(p => IsLoadable(p.p_vaddr, p.p_type))
+                    .Where(p => IsLoadable(p.p_pmemsz, p.p_type))
                     .Select(p => Tuple.Create(
                         platform.MakeAddressFromLinear(p.p_vaddr),
                         (uint)p.p_pmemsz)));
             foreach (var ph in ProgramHeaders64)
             {
                 Debug.Print("ph: addr {0:X8} filesize {0:X8} memsize {0:X8}", ph.p_vaddr, ph.p_filesz, ph.p_pmemsz);
-                if (!IsLoadable(ph.p_vaddr, ph.p_type))
+                if (!IsLoadable(ph.p_pmemsz, ph.p_type))
                     continue;
                 var vaddr = platform.MakeAddressFromLinear(ph.p_vaddr);
                 MemoryArea mem;
@@ -885,7 +906,11 @@ namespace Reko.ImageLoaders.Elf
                     if (symbol.Type == SymbolType.Procedure)
                     {
                         //$TODO: look up function signature.
-                        var gotSym = new ImageSymbol(addrGot, symbol.Name + "_GOT", new Pointer(new CodeType(), 4));
+                        var gotSym = new ImageSymbol(addrGot, symbol.Name + "_GOT", new Pointer(new CodeType(), 8))
+                        {
+                            Type = SymbolType.Data,
+                            Size = (uint) Architecture.PointerType.Size
+                        };
                         symbols[addrGot] = gotSym;
                         Debug.Print("Found GOT entry at {0}, changing symbol at {1}", gotSym, symbol);
                     }
@@ -896,8 +921,8 @@ namespace Reko.ImageLoaders.Elf
 
     public class ElfLoader32 : ElfLoader
     {
-        public ElfLoader32(ElfImageLoader imgLoader, Elf32_EHdr header32, byte[] rawImage)
-            : base(imgLoader, header32.e_machine)
+        public ElfLoader32(ElfImageLoader imgLoader, Elf32_EHdr header32, byte[] rawImage, byte endianness)
+            : base(imgLoader, header32.e_machine, endianness)
         {
             if (header32 == null)
                 throw new ArgumentNullException("header32");
@@ -1030,7 +1055,7 @@ namespace Reko.ImageLoaders.Elf
 
             return Address.Ptr32(
                 ProgramHeaders
-                .Where(ph => ph.p_vaddr > 0 && ph.p_filesz > 0)
+                .Where(ph => ph.p_filesz > 0)
                 .Min(ph => ph.p_vaddr));
         }
 
@@ -1048,16 +1073,19 @@ namespace Reko.ImageLoaders.Elf
             case ElfMachine.EM_MIPS: return new MipsRelocator(this);
             case ElfMachine.EM_PPC: return new PpcRelocator(this);
             case ElfMachine.EM_SPARC: return new SparcRelocator(this);
+            case ElfMachine.EM_XTENSA: return new XtensaRelocator(this);
+            case ElfMachine.EM_68K: return new M68kRelocator(this);
+            case ElfMachine.EM_AVR: return new AvrRelocator(this);
             }
             return base.CreateRelocator(machine);
         }
 
-        public ImageSegmentRenderer CreateRenderer(ElfSection shdr)
+        public ImageSegmentRenderer CreateRenderer(ElfSection shdr, ElfMachine machine)
         {
             switch (shdr.Type)
             {
             case SectionHeaderType.SHT_DYNAMIC:
-                return new DynamicSectionRenderer32(this, shdr);
+                return new DynamicSectionRenderer32(this, shdr, machine);
             case SectionHeaderType.SHT_REL:
                 return new RelSegmentRenderer(this, shdr);
             case SectionHeaderType.SHT_RELA:
@@ -1223,7 +1251,7 @@ namespace Reko.ImageLoaders.Elf
         {
             var segMap = AllocateMemoryAreas(
                 ProgramHeaders
-                    .Where(p => IsLoadable(p.p_vaddr, p.p_type))
+                    .Where(p => IsLoadable(p.p_pmemsz, p.p_type))
                     .Select(p => Tuple.Create(
                         Address.Ptr32(p.p_vaddr),
                         p.p_pmemsz)));
@@ -1231,7 +1259,7 @@ namespace Reko.ImageLoaders.Elf
             foreach (var ph in ProgramHeaders)
             {
                 Debug.Print("ph: addr {0:X8} filesize {0:X8} memsize {0:X8}", ph.p_vaddr, ph.p_filesz, ph.p_pmemsz);
-                if (!IsLoadable(ph.p_vaddr, ph.p_type))
+                if (!IsLoadable(ph.p_pmemsz, ph.p_type))
                     continue;
                 var vaddr = Address.Ptr32(ph.p_vaddr);
                 MemoryArea mem;
@@ -1260,7 +1288,7 @@ namespace Reko.ImageLoaders.Elf
                     {
                         Size = (uint)section.Size
                     });
-                    seg.Designer = CreateRenderer(section);
+                    seg.Designer = CreateRenderer(section, machine);
                 } else
                 {
                     //$TODO: warn
@@ -1290,14 +1318,14 @@ namespace Reko.ImageLoaders.Elf
             for (uint i = 0; i < Header.e_shnum; ++i)
             {
                 var shdr = Elf32_SHdr.Load(rdr);
+                if (shdr == null)
+                    break;
                 var section = new ElfSection
                 {
                     Number = i,
                     Type = shdr.sh_type,
                     Flags = shdr.sh_flags,
-                    Address = shdr.sh_addr != 0
-                        ? Address.Ptr32(shdr.sh_addr)
-                        : null,
+                    Address = Address.Ptr32(shdr.sh_addr),
                     FileOffset = shdr.sh_offset,
                     Size = shdr.sh_size,
                     Alignment = shdr.sh_addralign,
@@ -1430,7 +1458,11 @@ namespace Reko.ImageLoaders.Elf
                     if (symbol.Type == SymbolType.Procedure)
                     {
                         //$TODO: look up function signature.
-                        var gotSym = new ImageSymbol(addrGot, symbol.Name + "_GOT",  new Pointer(new CodeType(), 4));
+                        var gotSym = new ImageSymbol(addrGot, symbol.Name + "_GOT", new Pointer(new CodeType(), 4))
+                        {
+                            Type = SymbolType.Data,
+                            Size = (uint) Architecture.PointerType.Size
+                        };
                         symbols[addrGot] = gotSym;
                         Debug.Print("Found GOT entry at {0}, changing symbol at {1}", gotSym, symbol);
                     }

@@ -1,6 +1,6 @@
- #region License
+#region License
 /* 
- * Copyright (C) 1999-2016 John Källén.
+ * Copyright (C) 1999-2017 John Källén.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -21,6 +21,7 @@
 using Reko.Core;
 using Reko.Core.Code;
 using Reko.Core.Expressions;
+using Reko.Core.Services;
 using Reko.Core.Types;
 using Reko.Typing;
 using System;
@@ -28,48 +29,75 @@ using System;
 namespace Reko.Evaluation
 {
 	/// <summary>
-	/// Implements constant propagation.
+	/// Implements constant propagation. Addresses are considered
+    /// constants.
 	/// </summary>
     public class IdConstant
     {
         private EvaluationContext ctx;
         private Unifier unifier;
-        private Constant cSrc;
+        private Expression src;
         private Identifier idDst;
+        private DecompilerEventListener listener;
+        private DataType dt;
+        private PrimitiveType pt;
+        private Pointer ptr;
 
-        public IdConstant(EvaluationContext ctx, Unifier u)
+        public IdConstant(EvaluationContext ctx, Unifier u, DecompilerEventListener listener)
         {
             this.ctx = ctx;
             this.unifier = u;
+            this.listener = listener;
         }
 
         public bool Match(Identifier id)
         {
-            Expression e = ctx.GetValue(id);
-            cSrc = e as Constant;
+            this.src = ctx.GetValue(id);
+            var cSrc = src as Constant;
             if (cSrc == null || !cSrc.IsValid)
-                return false;
+            {
+                if (!(src is Address))
+                    return false;
+            }
             idDst = id;
-            return true;
+            this.dt = unifier.Unify(src.DataType, idDst.DataType);
+            this.pt = dt.ResolveAs<PrimitiveType>();
+            this.ptr = dt.ResolveAs<Pointer>();
+            return pt != null || this.ptr != null;
         }
 
         public Expression Transform()
         {
-            ctx.RemoveIdentifierUse(idDst);
-            if (!cSrc.IsValid)
-                return cSrc;
-            DataType dt = unifier.Unify(cSrc.DataType, idDst.DataType);
-            var pt = dt.ResolveAs<PrimitiveType>();
-            if (pt != null)
-                return Constant.Create(pt, cSrc.ToInt64());
-            var ptr = dt.ResolveAs<Pointer>();
-            if (ptr != null)
+            if (this.pt != null)
             {
-                var addr = Address.Create(ptr, cSrc.ToUInt64());
-                addr.DataType = ptr;
-                return addr;
+                ctx.RemoveIdentifierUse(idDst);
+                var cNew = src.CloneExpression();
+                cNew.DataType = dt;
+                return cNew;
             }
-            throw new NotSupportedException(string.Format("Resulting type is {0}, which isn't supported yet.", dt));
+            var cSrc = src as Constant;
+            if (this.ptr != null)
+            {
+                if (cSrc != null)
+                {
+                    ctx.RemoveIdentifierUse(idDst);
+                    var addr = Address.Create(ptr, cSrc.ToUInt64());
+                    addr.DataType = ptr;
+                    return addr;
+                }
+                if (src is Address)
+                {
+                    ctx.RemoveIdentifierUse(idDst);
+                    var addr = src.CloneExpression();
+                    addr.DataType = ptr;
+                    return addr;
+                }
+            }
+            listener.Warn(
+                new NullCodeLocation(""),
+                "Constant propagation failed. Resulting type is {0}, which isn't supported yet.", 
+                dt);
+            return idDst;
         }
     }
 }

@@ -1,6 +1,6 @@
 ﻿#region License
 /* 
- * Copyright (C) 1999-2016 John Källén.
+ * Copyright (C) 1999-2017 John Källén.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -34,9 +34,7 @@ namespace Reko.Arch.Arm
 {
     public partial class ThumbRewriter : IEnumerable<RtlInstructionCluster>
     {
-        private ThumbProcessorArchitecture arch;
         private IEnumerator<Arm32Instruction> instrs;
-        private ArmProcessorState state;
         private Frame frame;
         private IRewriterHost host;
         private Instruction<ArmInstruction,ArmRegister,ArmInstructionGroup,ArmInstructionDetail> instr;
@@ -44,18 +42,14 @@ namespace Reko.Arch.Arm
         private RtlInstructionCluster ric;
         private RtlEmitter emitter;
         private int itState;
-        private int itStateFirst;
         private ArmCodeCondition itStateCondition;
 
         public ThumbRewriter(ThumbProcessorArchitecture arch, ImageReader rdr, ArmProcessorState state, Frame frame, IRewriterHost host)
         {
-            this.arch = arch;
             this.instrs = CreateInstructionStream(rdr);
-            this.state = state;
             this.frame = frame;
             this.host = host;
             this.itState = 0;
-            this.itStateFirst = 0;
             this.itStateCondition = ArmCodeCondition.AL;
         }
 

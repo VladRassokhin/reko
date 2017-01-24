@@ -1,6 +1,6 @@
 ﻿#region License
 /* 
- * Copyright (C) 1999-2016 John Källén.
+ * Copyright (C) 1999-2017 John Källén.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -107,12 +107,16 @@ namespace Reko.Core.Configuration
         [XmlArrayItem("TypeLibrary")]
         public TypeLibraryReference_v1[] Characteristics;
 
-        [XmlElement]
+        [XmlElement("Heuristics")]
         public PlatformHeuristics_v1 Heuristics;
 
         [XmlArray("SignatureFiles")]
         [XmlArrayItem("SignatureFile")]
         public SignatureFile_v1[] SignatureFiles;
+
+        [XmlArray("Architectures")]
+        [XmlArrayItem("Architecture")]
+        public PlatformArchitecture_v1[] Architectures;
 
         // Collect any other platform-specific elements in "Options"
         [XmlAnyElement]
@@ -161,6 +165,9 @@ namespace Reko.Core.Configuration
 
         [XmlAttribute("Base")]
         public string Base;
+
+        [XmlAttribute("Loader")]
+        public string LoaderType;
     }
 
     [Serializable]
@@ -255,6 +262,20 @@ namespace Reko.Core.Configuration
         [XmlArray("ProcedurePrologs")]
         [XmlArrayItem("Pattern")]
         public BytePattern_v1[] ProcedurePrologs;
+    }
+
+    [Serializable]
+    public class PlatformArchitecture_v1
+    {
+        [XmlAttribute("name")]
+        public string Name;
+
+        [XmlElement("TrashedRegisters")]
+        public string TrashedRegisters;
+
+        [XmlArray("TypeLibraries")]
+        [XmlArrayItem("TypeLibrary")]
+        public TypeLibraryReference_v1[] TypeLibraries;
     }
 
     public class BytePattern_v1

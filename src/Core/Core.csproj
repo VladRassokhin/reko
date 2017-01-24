@@ -187,6 +187,7 @@
     <Compile Include="Code\SwitchInstruction.cs" />
     <Compile Include="Configuration\ArchitectureElement.cs" />
     <Compile Include="Configuration\AssemblerElement.cs" />
+    <Compile Include="Configuration\PlatformArchitectureElement.cs" />
     <Compile Include="Configuration\RekoConfigurationService.cs" />
     <Compile Include="Configuration\LoaderElement.cs" />
     <Compile Include="Configuration\OperatingEnvironmentElement.cs" />
@@ -317,6 +318,7 @@
     <Compile Include="Serialization\Project_v2.cs" />
     <Compile Include="Serialization\ArrayType_v1.cs" />
     <Compile Include="Serialization\Project_v4.cs" />
+    <Compile Include="Serialization\ReferenceType_v1.cs" />
     <Compile Include="Serialization\SerializedEnumType.cs" />
     <Compile Include="Serialization\SerializedProject.cs" />
     <Compile Include="Serialization\SerializedTemplate.cs" />
@@ -561,10 +563,6 @@
     <Compile Include="Serialization\PrimitiveType_v1.cs">
       <SubType>Code</SubType>
     </Compile>
-    <Compile Include="Serialization\SerializedProcedure.cs">
-      <SubType>Code</SubType>
-    </Compile>
-    <Compile Include="Serialization\SerializedProcedureBase.cs" />
     <Compile Include="Serialization\Register_v1.cs">
       <SubType>Code</SubType>
     </Compile>
@@ -677,7 +675,6 @@
     <Compile Include="Types\UnionType.cs">
       <SubType>Code</SubType>
     </Compile>
-    <Compile Include="Types\UnionTypeVarsReplacer.cs" />
     <Compile Include="Types\UnknownType.cs">
       <SubType>Code</SubType>
     </Compile>

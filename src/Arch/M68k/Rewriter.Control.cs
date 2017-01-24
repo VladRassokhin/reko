@@ -1,6 +1,6 @@
 ﻿#region License
 /* 
- * Copyright (C) 1999-2016 John Källén.
+ * Copyright (C) 1999-2017 John Källén.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -95,7 +95,7 @@ namespace Reko.Arch.M68k
         {
             if (dasm.Current.op1 == null)
                 return false;
-            emitter.SideEffect(host.PseudoProcedure("__syscall", VoidType.Instance, RewriteSrcOperand(dasm.Current.op1)));
+            emitter.SideEffect(host.PseudoProcedure(PseudoProcedure.Syscall, VoidType.Instance, RewriteSrcOperand(dasm.Current.op1)));
             return true;
         }
 

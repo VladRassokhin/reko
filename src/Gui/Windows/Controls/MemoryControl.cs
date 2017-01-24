@@ -1,6 +1,6 @@
 #region License
 /* 
- * Copyright (C) 1999-2016 John Källén.
+ * Copyright (C) 1999-2017 John Källén.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -522,7 +522,7 @@ namespace Reko.Gui.Windows.Controls
         public void imageMap_MapChanged(object sender, EventArgs e)
         {
             if (InvokeRequired)
-                Invoke(new Action(Invalidate));
+                BeginInvoke(new Action(Invalidate));
             else
                 Invalidate();
         }

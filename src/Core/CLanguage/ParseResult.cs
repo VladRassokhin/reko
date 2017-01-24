@@ -1,6 +1,6 @@
 ﻿#region License
 /* 
- * Copyright (C) 1999-2016 John Källén.
+ * Copyright (C) 1999-2017 John Källén.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -40,6 +40,16 @@ namespace Reko.Core.CLanguage
             if (error == null)
                 throw new ArgumentNullException("error");
             this.error = error;
+        }
+
+        public T Result
+        {
+            get
+            {
+                if (error != null)
+                    throw new InvalidOperationException("Mustn't access the result if an error was encountered.");
+                return result;
+            }
         }
     }
 

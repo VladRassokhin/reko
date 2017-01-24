@@ -1,6 +1,6 @@
 ﻿#region License
 /* 
- * Copyright (C) 1999-2016 John Källén.
+ * Copyright (C) 1999-2017 John Källén.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -39,10 +39,9 @@ namespace Reko.UnitTests
         // the Travis CI environment doesn't provide one.
         public const string UserInterface = "UserInterface";
 
-        // The purpose of the Capstone category is to avoid running
-        // such unit tests, because currently the Reko build process
-        // isn't able to provide a platform neutral Capstone 
-        // disassembler for ARM :-(
+        // The Capstone category identifies unit tests that depend on Capstone. 
+        // The Reko build provides special mono-compatible linux Capstone 
+        // disassembler libraries for ARM, so they can run on Travis.
         public const string Capstone = "Capstone";
 
     }

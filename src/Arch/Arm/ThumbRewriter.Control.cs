@@ -1,6 +1,6 @@
 ﻿#region License
 /* 
- * Copyright (C) 1999-2016 John Källén.
+ * Copyright (C) 1999-2017 John Källén.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -78,18 +78,17 @@ namespace Reko.Arch.Arm
         private void RewriteIt()
         {
             this.itState = instr.Bytes[0] & 0xF;
-            this.itStateFirst = instr.Bytes[0] >> 4;
             this.itStateCondition = instr.ArchitectureDetail.CodeCondition;
         }
 
         private void RewriteTrap()
         {
-            emitter.SideEffect(host.PseudoProcedure("__syscall", VoidType.Instance, Constant.UInt32(instr.Bytes[0])));
+            emitter.SideEffect(host.PseudoProcedure(PseudoProcedure.Syscall, VoidType.Instance, Constant.UInt32(instr.Bytes[0])));
         }
 
         private void RewriteUdf()
         {
-            emitter.SideEffect(host.PseudoProcedure("__syscall", VoidType.Instance, Constant.UInt32(instr.Bytes[0])));
+            emitter.SideEffect(host.PseudoProcedure(PseudoProcedure.Syscall, VoidType.Instance, Constant.UInt32(instr.Bytes[0])));
         }
     }
 }

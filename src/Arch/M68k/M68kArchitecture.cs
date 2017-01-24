@@ -1,6 +1,6 @@
 ﻿#region License
 /* 
- * Copyright (C) 1999-2016 John Källén.
+ * Copyright (C) 1999-2017 John Källén.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -96,6 +96,23 @@ namespace Reko.Arch.M68k
         public override ImageWriter CreateImageWriter(MemoryArea mem, Address addr)
         {
             return new BeImageWriter(mem, addr);
+        }
+
+        public override SortedList<string, int> GetOpcodeNames()
+        {
+            return Enum.GetValues(typeof(Opcode))
+                .Cast<Opcode>()
+                .ToSortedList(
+                    v => v.ToString(),
+                    v => (int)v);
+        }
+
+        public override int? GetOpcodeNumber(string name)
+        {
+            Opcode result;
+            if (!Enum.TryParse(name, true, out result))
+                return null;
+            return (int)result;
         }
 
         public override RegisterStorage GetRegister(int i)

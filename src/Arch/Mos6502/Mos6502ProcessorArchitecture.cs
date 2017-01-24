@@ -1,6 +1,6 @@
 ﻿#region License
 /* 
- * Copyright (C) 1999-2016 John Källén.
+ * Copyright (C) 1999-2017 John Källén.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -94,6 +94,23 @@ namespace Reko.Arch.Mos6502
             throw new NotImplementedException();
         }
 
+        public override SortedList<string, int> GetOpcodeNames()
+        {
+            return Enum.GetValues(typeof(Opcode))
+                .Cast<Opcode>()
+                .ToSortedList(
+                    v => v.ToString(),
+                    v => (int)v);
+        }
+
+        public override int? GetOpcodeNumber(string name)
+        {
+            Opcode result;
+            if (!Enum.TryParse(name, true, out result))
+                return null;
+            return (int)result;
+        }
+
         public override RegisterStorage GetRegister(int i)
         {
             throw new NotImplementedException();
@@ -163,7 +180,7 @@ namespace Reko.Arch.Mos6502
         public static readonly RegisterStorage y = RegisterStorage.Reg8("y", 2);
         public static readonly RegisterStorage s = RegisterStorage.Reg8("s", 3);
 
-        public static readonly FlagRegister p = new FlagRegister("p", PrimitiveType.Byte);
+        public static readonly FlagRegister p = new FlagRegister("p", 10, PrimitiveType.Byte);
 
         public static readonly RegisterStorage N = new RegisterStorage("N", 4, 0, PrimitiveType.Byte);
         public static readonly RegisterStorage V = new RegisterStorage("V", 5, 0, PrimitiveType.Byte);

@@ -1,6 +1,6 @@
 #region License
 /* 
- * Copyright (C) 1999-2016 John Källén.
+ * Copyright (C) 1999-2017 John Källén.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -206,7 +206,7 @@ namespace Reko.UnitTests.Analysis
             var loader = new Loader(sc);
             var project = string.IsNullOrEmpty(configFile)
                 ? new Project()
-                : new ProjectLoader(sc, loader).LoadProject(FileUnitTester.MapTestPath(configFile));
+                : new ProjectLoader(sc, loader, eventListener).LoadProject(FileUnitTester.MapTestPath(configFile));
             var scan = new Scanner(
                 program,
                 new ImportResolver(project, program, eventListener),

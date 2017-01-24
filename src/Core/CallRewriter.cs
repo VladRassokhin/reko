@@ -1,6 +1,6 @@
 #region License
 /* 
- * Copyright (C) 1999-2016 John Källén.
+ * Copyright (C) 1999-2017 John Källén.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -35,17 +35,14 @@ namespace Reko.Core
     /// </remarks>
 	public class CallRewriter
 	{
-        private DecompilerEventListener listener;
-
-		public CallRewriter(Program program, DecompilerEventListener listener)
+		public CallRewriter(Program program)
 		{
             this.Program = program;
-            this.listener = listener;
         }
 
         public static void Rewrite(Program program, DecompilerEventListener listener)
         {
-            var crw = new CallRewriter(program, listener);
+            var crw = new CallRewriter(program);
             foreach (Procedure proc in program.Procedures.Values)
             {
                 if (listener.IsCanceled())

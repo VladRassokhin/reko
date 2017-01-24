@@ -1,6 +1,6 @@
 ﻿#region License
 /* 
- * Copyright (C) 1999-2016 John Källén.
+ * Copyright (C) 1999-2017 John Källén.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -91,16 +91,16 @@ namespace Reko.UnitTests.Evaluation
         {
             var q = (double)num / denom;
             var n = (uint) Math.Round(q * Math.Pow(2.0, 32));
-            var f = n * Math.Pow(2.0, -32);
 
-            var rat = ConstDivisionImplementedByMultiplication.ContinuedFraction(f);
+            var rat = ConstDivisionImplementedByMultiplication.FindBestRational(n);
+            Debug.Print("{0}/{1} - {2}", num, denom, rat);
             if (num != rat.Numerator || 
                denom != rat.Denominator)
             {
                 Debug.Print("***** inexact *****");
             }
-
         }
+
         [Test]
         public void Cdiv_ContinuedFraction()
         {

@@ -1,6 +1,6 @@
 #region License
 /* 
- * Copyright (C) 1999-2016 John Källén.
+ * Copyright (C) 1999-2017 John Källén.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -65,7 +65,7 @@ namespace Reko.Core.Serialization
 
         /// <summary>
         /// Property that indicated whether the procedure body is to be decompiled 
-        /// or not. If false, it is recommendedthat the Signature property be set.
+        /// or not. If false, it is recommended that the Signature property be set.
         /// </summary>
         [XmlElement("decompile")]
         [DefaultValue(true)]

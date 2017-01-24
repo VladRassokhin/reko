@@ -1,6 +1,6 @@
 ﻿#region License
 /* 
- * Copyright (C) 1999-2016 John Källén.
+ * Copyright (C) 1999-2017 John Källén.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -32,13 +32,11 @@ namespace Reko.Arch.Sparc
 {
     public class SparcDisassembler : DisassemblerBase<SparcInstruction>
     {
-        private SparcArchitecture arch;
         private SparcInstruction instrCur;
         private ImageReader imageReader;
 
         public SparcDisassembler(SparcArchitecture arch, ImageReader imageReader)
         {
-            this.arch = arch;
             this.imageReader = imageReader;
         }
 

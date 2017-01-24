@@ -1,6 +1,6 @@
 #region License
 /* 
- * Copyright (C) 1999-2016 John Källén.
+ * Copyright (C) 1999-2017 John Källén.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -30,9 +30,11 @@ using Reko.UnitTests.Mocks;
 using NUnit.Framework;
 using System;
 using System.IO;
+using System.Linq;
 using Rhino.Mocks;
 using System.Diagnostics;
 using System.Collections.Generic;
+using Reko.UnitTests.Fragments;
 
 namespace Reko.UnitTests.Analysis
 {
@@ -43,6 +45,7 @@ namespace Reko.UnitTests.Analysis
         private MockRepository mr;
         private IProcessorArchitecture arch;
         private IImportResolver importResolver;
+        private FakeDecompilerEventListener listener;
 
         [SetUp]
 		public void Setup()
@@ -51,6 +54,7 @@ namespace Reko.UnitTests.Analysis
             mr = new MockRepository();
             arch = mr.Stub<IProcessorArchitecture>();
             importResolver = mr.Stub<IImportResolver>();
+            listener = new FakeDecompilerEventListener();
 		}
 
         private Identifier Reg32(string name)
@@ -123,7 +127,7 @@ namespace Reko.UnitTests.Analysis
 				proc.Write(false, writer);
 				writer.WriteLine();
 
-				ValuePropagator vp = new ValuePropagator(prog.Architecture, ssa);
+				ValuePropagator vp = new ValuePropagator(prog.Architecture, ssa, listener);
 				vp.Transform();
 
 				ssa.Write(writer);
@@ -161,6 +165,7 @@ namespace Reko.UnitTests.Analysis
 		{
             Given_FakeWin32Platform(mr);
             this.platform.Stub(p => p.LookupGlobalByName(null, null)).IgnoreArguments().Return(null);
+            this.platform.Stub(p => p.DataTypeFromImportName(null)).IgnoreArguments().Return(null);
             mr.ReplayAll();
 			RunFileTest32("Fragments/import32/GlobalHandle.asm", "Analysis/VpGlobalHandle.txt");
 		}
@@ -237,7 +242,7 @@ namespace Reko.UnitTests.Analysis
                 new HashSet<RegisterStorage>());
 			SsaState ssa = sst.SsaState;
 
-			ValuePropagator vp = new ValuePropagator(arch, ssa);
+			ValuePropagator vp = new ValuePropagator(arch, ssa, listener);
 			vp.Transform();
 
 			using (FileUnitTester fut = new FileUnitTester("Analysis/VpDbp.txt"))
@@ -269,7 +274,7 @@ namespace Reko.UnitTests.Analysis
         {
             var ctx = new SsaEvaluationContext(arch, ssaIds);
             ctx.Statement = new Statement(0, new SideEffect(Constant.Word32(32)), null);
-            return new ExpressionSimplifier(ctx);
+            return new ExpressionSimplifier(ctx, listener);
         }
 
 		[Test]
@@ -278,7 +283,7 @@ namespace Reko.UnitTests.Analysis
 			Identifier r = Reg32("r");
 
             var sub = new BinaryExpression(Operator.ISub, PrimitiveType.Word32, new MemoryAccess(MemoryIdentifier.GlobalMemory, r, PrimitiveType.Word32), Constant.Word32(0));
-            var vp = new ExpressionSimplifier(new SsaEvaluationContext(arch, ssaIds));
+            var vp = new ExpressionSimplifier(new SsaEvaluationContext(arch, ssaIds), listener);
 			var exp = sub.Accept(vp);
 			Assert.AreEqual("Mem0[r:word32]", exp.ToString());
 		}
@@ -307,7 +312,7 @@ namespace Reko.UnitTests.Analysis
 			Assert.AreEqual("y = x - 0x00000002", stmY.ToString());
 			Assert.AreEqual("branch y == 0x00000000 test", stm.ToString());
 
-			var vp = new ValuePropagator(arch, ssa);
+			var vp = new ValuePropagator(arch, ssa, listener);
 			vp.Transform(stm);
 			Assert.AreEqual("branch x == 0x00000002 test", stm.Instruction.ToString());
 		}
@@ -337,7 +342,7 @@ namespace Reko.UnitTests.Analysis
 			Assert.AreEqual("z = y + 0x00000002", stmZ.Instruction.ToString());
 			Assert.AreEqual("w = y", stmW.Instruction.ToString());
 
-			ValuePropagator vp = new ValuePropagator(arch, ssa);
+			ValuePropagator vp = new ValuePropagator(arch, ssa, listener);
 			vp.Transform(stmX);
 			vp.Transform(stmY);
 			vp.Transform(stmZ);
@@ -354,7 +359,7 @@ namespace Reko.UnitTests.Analysis
 		[Test]
 		public void VpSliceConstant()
 		{
-            var vp = new ExpressionSimplifier(new SsaEvaluationContext(arch, ssaIds));
+            var vp = new ExpressionSimplifier(new SsaEvaluationContext(arch, ssaIds), listener);
             Expression c = new Slice(PrimitiveType.Byte, Constant.Word32(0x10FF), 0).Accept(vp);
 			Assert.AreEqual("0xFF", c.ToString());
 		}
@@ -364,7 +369,7 @@ namespace Reko.UnitTests.Analysis
 		{
 			Identifier x = Reg32("x");
 			Identifier y = Reg32("y");
-            var vp = new ExpressionSimplifier(new SsaEvaluationContext(arch, ssaIds));
+            var vp = new ExpressionSimplifier(new SsaEvaluationContext(arch, ssaIds), listener);
 			Expression e = vp.VisitUnaryExpression(
 				new UnaryExpression(Operator.Neg, PrimitiveType.Word32, new BinaryExpression(
 				Operator.ISub, PrimitiveType.Word32, x, y)));
@@ -378,7 +383,7 @@ namespace Reko.UnitTests.Analysis
 		public void VpMulAddShift()
 		{
 			Identifier id = Reg32("id");
-            var vp = new ExpressionSimplifier(new SsaEvaluationContext(arch, ssaIds));
+            var vp = new ExpressionSimplifier(new SsaEvaluationContext(arch, ssaIds), listener);
 			PrimitiveType t = PrimitiveType.Int32;
 			BinaryExpression b = new BinaryExpression(Operator.Shl, t, 
 				new BinaryExpression(Operator.IAdd, t, 
@@ -395,7 +400,7 @@ namespace Reko.UnitTests.Analysis
 			Identifier id = Reg32("id");
 			ProcedureBuilder m = new ProcedureBuilder();
 			Expression e = m.Shl(m.Shl(id, 1), 4);
-            var vp = new ExpressionSimplifier(new SsaEvaluationContext(arch, ssaIds));
+            var vp = new ExpressionSimplifier(new SsaEvaluationContext(arch, ssaIds), listener);
 			e = e.Accept(vp);
 			Assert.AreEqual("id << 0x05", e.ToString());
 		}
@@ -405,7 +410,7 @@ namespace Reko.UnitTests.Analysis
 		{
 			ProcedureBuilder m = new ProcedureBuilder();
 			Expression e = m.Shl(1, m.ISub(Constant.Byte(32), 1));
-            var vp = new ExpressionSimplifier(new SsaEvaluationContext(arch, ssaIds));
+            var vp = new ExpressionSimplifier(new SsaEvaluationContext(arch, ssaIds), listener);
 			e = e.Accept(vp);
 			Assert.AreEqual("0x80000000", e.ToString());
 		}
@@ -416,7 +421,7 @@ namespace Reko.UnitTests.Analysis
 			Constant pre = Constant.Word16(0x0001);
 			Constant fix = Constant.Word16(0x0002);
 			Expression e = new MkSequence(PrimitiveType.Word32, pre, fix);
-            var vp = new ExpressionSimplifier(new SsaEvaluationContext(arch, ssaIds));
+            var vp = new ExpressionSimplifier(new SsaEvaluationContext(arch, ssaIds), listener);
 			e = e.Accept(vp);
 			Assert.AreEqual("0x00010002", e.ToString());
 		}
@@ -427,7 +432,7 @@ namespace Reko.UnitTests.Analysis
             Constant eight = Constant.Word16(8);
             Identifier C = Reg8("C");
             Expression e = new Slice(PrimitiveType.Byte, new BinaryExpression(Operator.Shl, PrimitiveType.Word16, C, eight), 8);
-            var vp = new ExpressionSimplifier(new SsaEvaluationContext(arch, ssaIds));
+            var vp = new ExpressionSimplifier(new SsaEvaluationContext(arch, ssaIds), listener);
             e = e.Accept(vp);
             Assert.AreEqual("C", e.ToString());
         }
@@ -441,7 +446,7 @@ namespace Reko.UnitTests.Analysis
             mr.ReplayAll();
 
             Expression e = new MkSequence(PrimitiveType.Word32, seg, off);
-            var vp = new ExpressionSimplifier(new SsaEvaluationContext(arch, ssaIds));
+            var vp = new ExpressionSimplifier(new SsaEvaluationContext(arch, ssaIds), listener);
             e = e.Accept(vp);
             Assert.IsInstanceOf(typeof(Address), e);
             Assert.AreEqual("4711:4111", e.ToString());
@@ -450,7 +455,6 @@ namespace Reko.UnitTests.Analysis
         }
 
         [Test]
-        [Ignore("Making this pass breaks a lot of older unit tests. Re-enable once transition to new ProcedureFlow is complete.")]
         public void VpPhiWithConstants()
         {
             Constant c1 = Constant.Word16(0x4711);
@@ -460,15 +464,58 @@ namespace Reko.UnitTests.Analysis
             Identifier r3 = Reg16("r3");
             var stm1 = new Statement(1, new Assignment(r1, c1), null);
             var stm2 = new Statement(2, new Assignment(r2, c2), null);
-            ssaIds[r1].DefStatement = stm1;
-            ssaIds[r2].DefStatement = stm2;
-            var vp = new ValuePropagator(arch, null);
+            var proc = new Procedure("foo", arch.CreateFrame());
+            var ssa = new SsaState(proc, null);
+            var r1Sid = ssa.Identifiers.Add(r1, null, null, false);
+            var r2Sid = ssa.Identifiers.Add(r2, null, null, false);
+            r1Sid.DefStatement = stm1;
+            r2Sid.DefStatement = stm2;
+            var vp = new ValuePropagator(arch, ssa, listener);
             Instruction instr = new PhiAssignment(r3, new PhiFunction(r1.DataType, r1, r2));
             instr = instr.Accept(vp);
             Assert.AreEqual("r3 = 0x4711", instr.ToString());
         }
 
-		private class DpbMock : ProcedureBuilder
+        [Test(Description =
+            "if x = phi(a_1, a_2, ... a_n) and all phi arguments after " +
+            "value propagation are equal to <exp> or x where <exp> is some  " +
+            "expression then replace phi assignment with x = <exp>)")]
+        public void VpPhiLoops()
+        {
+            var m = new ProcedureBuilder();
+            var ssa = new SsaState(m.Procedure, null);
+            ssaIds = ssa.Identifiers;
+            var fp = Reg16("fp");
+            var a = Reg16("a");
+            var b = Reg16("b");
+            var c = Reg16("c");
+            var d = Reg16("d");
+            var x = Reg16("x");
+            var y = Reg16("y");
+            var z = Reg16("z");
+            m.Emit(m.Assign(y, m.IAdd(x, 4)));
+            m.Emit(m.Assign(z, m.ISub(x, 8)));
+            m.Emit(m.Assign(a, m.ISub(fp, 12)));
+            m.Emit(m.Assign(b, m.ISub(fp, 12)));
+            m.Emit(m.Assign(c, m.ISub(y, 4)));
+            m.Emit(m.Assign(d, m.IAdd(z, 8)));
+            var phiStm = m.Phi(x, a, b, c, d);
+            var stms = m.Procedure.EntryBlock.Succ[0].Statements;
+            stms.ForEach(stm =>
+            {
+                var ass = stm.Instruction as Assignment;
+                if (ass != null)
+                    ssaIds[ass.Dst].DefStatement = stm;
+                var phiAss = stm.Instruction as PhiAssignment;
+                if (phiAss != null)
+                    ssaIds[phiAss.Dst].DefStatement = stm;
+            });
+            var vp = new ValuePropagator(arch, ssa, listener);
+            vp.Transform();
+            Assert.AreEqual("x = fp - 0x000C", phiStm.Instruction.ToString());
+        }
+
+        private class DpbMock : ProcedureBuilder
 		{
 			protected override void BuildBody()
 			{
@@ -503,7 +550,7 @@ namespace Reko.UnitTests.Analysis
 			var sst = new SsaTransform(new ProgramDataFlow(), proc, importResolver, gr, new HashSet<RegisterStorage>());
 			var ssa = sst.SsaState;
 
-			var vp = new ValuePropagator(arch, ssa);
+			var vp = new ValuePropagator(arch, ssa, listener);
 			vp.Transform();
 
 			using (FileUnitTester fut = new FileUnitTester("Analysis/VpDpbDpb.txt"))
@@ -521,7 +568,7 @@ namespace Reko.UnitTests.Analysis
             var sst = new SsaTransform(new ProgramDataFlow(), proc, importResolver, gr, new HashSet<RegisterStorage>());
             var ssa = sst.SsaState;
 
-            var vp = new ValuePropagator(arch, ssa);
+            var vp = new ValuePropagator(arch, ssa, listener);
             vp.Transform();
             return ssa;
         }
@@ -795,8 +842,9 @@ r63:r63
     uses: r63_2 = r63 - 0x00000004
           Mem3[r63 - 0x00000004:word32] = 0x00000003
           r63_4 = r63 - 0x00000008
-          r63_4 = r63 - 0x00000008
           Mem5[r63 - 0x00000008:word16] = Mem3[0x01231230:word16]
+          r1_6 = foo(Mem8[r63 - 0x00000008:word32], Mem9[r63 - 0x00000004:word32])
+          r1_6 = foo(Mem8[r63 - 0x00000008:word32], Mem9[r63 - 0x00000004:word32])
 r63_2: orig: r63
     def:  r63_2 = r63 - 0x00000004
 Mem3: orig: Mem0
@@ -807,8 +855,12 @@ r63_4: orig: r63
 Mem5: orig: Mem0
     def:  Mem5[r63 - 0x00000008:word16] = Mem3[0x01231230:word16]
 r1_6: orig: r1
-    def:  r1_6 = foo(Mem0[r63:word32], Mem0[r63 + 0x00000004:word32])
+    def:  r1_6 = foo(Mem8[r63 - 0x00000008:word32], Mem9[r63 - 0x00000004:word32])
 r63_7: orig: r63
+Mem8: orig: Mem0
+    uses: r1_6 = foo(Mem8[r63 - 0x00000008:word32], Mem9[r63 - 0x00000004:word32])
+Mem9: orig: Mem0
+    uses: r1_6 = foo(Mem8[r63 - 0x00000008:word32], Mem9[r63 - 0x00000004:word32])
 // ProcedureBuilder
 // Return size: 0
 void ProcedureBuilder()
@@ -821,13 +873,13 @@ l1:
 	Mem3[r63 - 0x00000004:word32] = 0x00000003
 	r63_4 = r63 - 0x00000008
 	Mem5[r63 - 0x00000008:word16] = Mem3[0x01231230:word16]
-	r1_6 = foo(Mem0[r63:word32], Mem0[r63 + 0x00000004:word32])
+	r1_6 = foo(Mem8[r63 - 0x00000008:word32], Mem9[r63 - 0x00000004:word32])
 	return
 	// succ:  ProcedureBuilder_exit
 ProcedureBuilder_exit:
 ";
             #endregion
-                AssertStringsEqual(sExp, ssa);
+            AssertStringsEqual(sExp, ssa);
         }
 
         [Test]
@@ -845,6 +897,28 @@ ProcedureBuilder_exit:
             mr.ReplayAll();
 
             RunFileTest(m, "Analysis/VpCastCast.txt");
+        }
+
+        [Test(Description = "m68k floating-point comparison")]
+        public void VpFCmp()
+        {
+            var m = new FCmpFragment();
+            mr.ReplayAll();
+
+            RunFileTest(m, "Analysis/VpFCmp.txt");
+        }
+
+        [Test(Description = "Should be able to simplify address +/- constant")]
+        public void VpAddress32Const()
+        {
+            var m = new ProcedureBuilder("VpAddress32Const");
+            var r1 = m.Reg32("r1", 1);
+            m.Assign(r1, Address.Ptr32(0x00123400));
+            m.Assign(r1, m.Load(r1.DataType, m.IAdd(r1, 0x56)));
+            m.Return();
+
+            mr.ReplayAll();
+            RunFileTest(m, "Analysis/VpAddress32Const.txt");
         }
     }
 }

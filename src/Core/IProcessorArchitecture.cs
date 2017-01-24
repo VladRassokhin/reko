@@ -1,6 +1,6 @@
 #region License
 /* 
- * Copyright (C) 1999-2016 John Källén.
+ * Copyright (C) 1999-2017 John Källén.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -25,6 +25,7 @@ using Reko.Core.Types;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.Linq;
 
 namespace Reko.Core
 {
@@ -119,6 +120,13 @@ namespace Reko.Core
         IEqualityComparer<MachineInstruction> CreateInstructionComparer(Normalize norm);
 
         IEnumerable<RegisterStorage> GetAliases(RegisterStorage reg);
+
+        /// <summary>
+        /// Returns a list of all the available opcodes.
+        /// </summary>
+        /// <returns></returns>
+        SortedList<string, int> GetOpcodeNames();           // Returns all the processor opcode names and their internal Reko numbers.
+        int? GetOpcodeNumber(string name);                  // Returns an internal Reko opcode for an instruction, or null if none is available.
         RegisterStorage GetRegister(int i);                 // Returns register corresponding to number i.
         RegisterStorage GetRegister(string name);           // Returns register whose name is 'name'
         RegisterStorage GetSubregister(RegisterStorage reg, int offset, int width);
@@ -211,6 +219,18 @@ namespace Reko.Core
         public abstract RegisterStorage GetRegister(int i);
         public abstract RegisterStorage GetRegister(string name);
         public abstract RegisterStorage[] GetRegisters();
+
+        /// <summary>
+        /// For a particular opcode name, returns its internal (Reko) number.
+        /// </summary>
+        /// <returns></returns>
+        public abstract int? GetOpcodeNumber(string name);
+
+        /// <summary>
+        /// Returns a map of opcode names to their internal (Reko) numbers.
+        /// </summary>
+        /// <returns></returns>
+        public abstract SortedList<string, int> GetOpcodeNames();
 
         /// <summary>
         /// Get the improper subregister of <paramref name="reg"/> that starts

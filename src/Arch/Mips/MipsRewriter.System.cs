@@ -1,6 +1,6 @@
 ﻿#region License
 /* 
- * Copyright (C) 1999-2016 John Källén.
+ * Copyright (C) 1999-2017 John Källén.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -55,13 +55,29 @@ namespace Reko.Arch.Mips
             emitter.Assign(RewriteOperand(instr.op1), from);
         }
 
-        private void RewriteTrap(MipsInstruction instr, Operator op)
+        private void RewriteTrap(MipsInstruction instr, Func<Expression,Expression,Expression> op)
         {
             var trap = host.PseudoProcedure("__trap", VoidType.Instance, RewriteOperand(instr.op3));
-            emitter.If(new BinaryExpression(op, PrimitiveType.Bool,
+            emitter.If(op(
                 RewriteOperand(instr.op1),
                 RewriteOperand(instr.op2)),
                 new RtlSideEffect(trap));
+        }
+
+        private void RewriteReadHardwareRegister(MipsInstruction instr)
+        {
+            var rdhwr = host.PseudoProcedure("__read_hardware_register", PrimitiveType.UInt32, this.RewriteOperand(instr.op2));
+            emitter.Assign(this.RewriteOperand(instr.op1), rdhwr);
+        }
+
+        private void RewriteSyscall(MipsInstruction instr)
+        {
+            emitter.SideEffect(host.PseudoProcedure(PseudoProcedure.Syscall, VoidType.Instance, this.RewriteOperand(instr.op1)));
+        }
+
+        private void RewriteSync(MipsInstruction instr)
+        {
+            emitter.SideEffect(host.PseudoProcedure("__sync", VoidType.Instance, this.RewriteOperand(instr.op1)));
         }
     }
 }

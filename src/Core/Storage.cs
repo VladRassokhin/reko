@@ -1,6 +1,6 @@
 #region License
 /* 
- * Copyright (C) 1999-2016 John Källén.
+ * Copyright (C) 1999-2017 John Källén.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -88,8 +88,8 @@ namespace Reko.Core
     /// </summary>
     public class FlagRegister : RegisterStorage
     {
-        public FlagRegister(string name, PrimitiveType size) :
-            base(name, 0, 0, size)
+        public FlagRegister(string name, int number, PrimitiveType size) :
+            base(name, number, 0, size)
         {
         }
 
@@ -689,7 +689,10 @@ namespace Reko.Core
         {
             Domain = StorageDomain.Temporary + number;
             Name = name;
+            DataType = dt;
 		}
+
+        public DataType DataType { get; private set; }
 
         public override T Accept<T>(StorageVisitor<T> visitor)
         {

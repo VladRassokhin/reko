@@ -1,6 +1,6 @@
 ﻿#region License
 /* 
- * Copyright (C) 1999-2016 John Källén.
+ * Copyright (C) 1999-2017 John Källén.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -103,6 +103,7 @@ namespace Reko.Arch.M68k
         extb,
 
         fmove,
+        fmovem,
         fint,
         fsinh,
         fintrz,
@@ -156,6 +157,38 @@ namespace Reko.Arch.M68k
         fssub,
         fdsub,
 
+        fbf,
+        fbeq,
+        fbogt,
+        fboge,
+        fbolt,
+        fbole,
+        fbogl,
+        fbor,    
+        fbun,
+        fbueq,
+        fbugt,
+        fbuge,
+        fbult,
+        fbule,
+        fbne,
+        fbt,    
+        fbsf,
+        fbseq,
+        fbgt,
+        fbge,
+        fblt,
+        fble,
+        fbgl,
+        fbgle,      
+        fbngle,
+        fbngl,
+        fbnle,
+        fbnlt,
+        fbnge,
+        fbngt,
+        fbsne,
+        fbst,  
 
         jmp,
         jsr,

@@ -1,6 +1,6 @@
 #region License
 /* 
- * Copyright (C) 1999-2016 John Källén.
+ * Copyright (C) 1999-2017 John Källén.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -26,6 +26,7 @@ using Reko.Core.Expressions;
 using Reko.Core.Machine;
 using Reko.Core.Operators;
 using Reko.Core.Types;
+using Reko.UnitTests.Fragments;
 using Reko.UnitTests.Mocks;
 using Rhino.Mocks;
 using System;
@@ -50,7 +51,7 @@ namespace Reko.UnitTests.Analysis
             m = new ProcedureBuilder();
             ssaState = new SsaState(m.Procedure, null);
             ssaIds = ssaState.Identifiers;
-            freg = new FlagRegister("flags", PrimitiveType.Word32);
+            freg = new FlagRegister("flags", 32, PrimitiveType.Word32);
 		}
 
         private void Given_ConditionCodeEliminator()
@@ -91,7 +92,8 @@ namespace Reko.UnitTests.Analysis
         protected override void RunTest(Program program, TextWriter writer)
         {
             var importResolver = MockRepository.GenerateStub<IImportResolver>();
-            DataFlowAnalysis dfa = new DataFlowAnalysis(program, importResolver, new FakeDecompilerEventListener());
+            var listener = new FakeDecompilerEventListener();
+            DataFlowAnalysis dfa = new DataFlowAnalysis(program, importResolver, listener);
             dfa.UntangleProcedures();
             foreach (Procedure proc in program.Procedures.Values)
             {
@@ -106,7 +108,7 @@ namespace Reko.UnitTests.Analysis
                 var cce = new ConditionCodeEliminator(ssa, program.Platform);
                 cce.Transform();
 
-                var vp = new ValuePropagator(program.Architecture, ssa);
+                var vp = new ValuePropagator(program.Architecture, ssa, listener);
                 vp.Transform();
 
                 DeadCode.Eliminate(proc, ssa);
@@ -408,7 +410,7 @@ done:
                 var r2 = MockReg(m, 2);
                 var r3 = MockReg(m, 3);
                 var r4 = MockReg(m, 4);
-                var flags = new FlagRegister("flags", PrimitiveType.Word32);
+                var flags = new FlagRegister("flags", 0x0A, PrimitiveType.Word32);
                 var SCZ = m.Frame.EnsureFlagGroup(flags, 0x7, "SZC", PrimitiveType.Byte);
                 var C = m.Frame.EnsureFlagGroup(flags, 0x4, "C", PrimitiveType.Byte);
 
@@ -447,7 +449,7 @@ done:
         [Test]
         public void CceShlRclPattern()
         {
-            var p = new ProgramBuilder(new FakeArchitecture());
+            var p = new ProgramBuilder();
             p.Add("main", (m) =>
             {
                 var C = m.Flags("C");
@@ -471,6 +473,14 @@ done:
         public void CceIsqrt()
         {
             RunFileTest("Fragments/isqrt.asm", "Analysis/CceIsqrt.txt");
+        }
+
+        [Test]
+        public void CceFCmp()
+        {
+            var p = new ProgramBuilder();
+            p.Add(new FCmpFragment());
+            RunTest(p, "Analysis/CceFCmp.txt");
         }
 	}
 }

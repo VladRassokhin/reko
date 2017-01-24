@@ -1,6 +1,6 @@
 ﻿#region License
 /* 
- * Copyright (C) 1999-2016 John Källén.
+ * Copyright (C) 1999-2017 John Källén.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -38,7 +38,6 @@ namespace Reko.Arch.Arm
     {
         private Arm32ProcessorArchitecture arch;
         private IEnumerator<Arm32Instruction> instrs;
-        private ArmProcessorState state;
         private Frame frame;
         private CapstoneArmInstruction instr;
         private ArmInstructionOperand [] ops;
@@ -50,7 +49,6 @@ namespace Reko.Arch.Arm
         {
             this.arch = arch;
             this.instrs = CreateInstructionStream(rdr);
-            this.state = state;
             this.frame = frame;
             this.host = host;
         }
@@ -486,14 +484,17 @@ namespace Reko.Arch.Arm
         case Opcode.SEVL:
         case Opcode.VPUSH:
         case Opcode.VPOP:
-            throw new AddressCorrelatedException(
-               instrs.Current.Address,
-               "Rewriting ARM opcode '{0}' is not supported yet.",
-               instr.Mnemonic);
+                    host.Error(
+                        instrs.Current.Address,
+                        string.Format(
+                            "Rewriting ARM opcode '{0}' is not supported yet.",
+                            instr.Mnemonic));
+                    emitter.Invalid();
+                    break;
 
-                case Opcode.AND: RewriteBinOp(Operator.And, instr.ArchitectureDetail.UpdateFlags); break;
-                case Opcode.ADD: RewriteBinOp(Operator.IAdd, instr.ArchitectureDetail.UpdateFlags); break;
-                case Opcode.EOR: RewriteBinOp(Operator.Xor, instr.ArchitectureDetail.UpdateFlags); break;
+                case Opcode.AND: RewriteBinOp(emitter.And, instr.ArchitectureDetail.UpdateFlags); break;
+                case Opcode.ADD: RewriteBinOp(emitter.IAdd, instr.ArchitectureDetail.UpdateFlags); break;
+                case Opcode.EOR: RewriteBinOp(emitter.Xor, instr.ArchitectureDetail.UpdateFlags); break;
                 case Opcode.B: RewriteB(false); break;
                 case Opcode.BIC: RewriteBic(); break;
                 case Opcode.BL: RewriteB(true); break;
@@ -509,7 +510,7 @@ namespace Reko.Arch.Arm
                 case Opcode.NOP: emitter.Nop(); break;
                 case Opcode.MOV: RewriteMov(); break;
                 case Opcode.MVN: RewriteUnaryOp(Operator.Not); break;
-                case Opcode.ORR: RewriteBinOp(Operator.Or, false); break;
+                case Opcode.ORR: RewriteBinOp(emitter.Or, false); break;
                 case Opcode.PUSH: RewritePush(); break;
                 case Opcode.RSB: RewriteRevBinOp(Operator.ISub, instr.ArchitectureDetail.UpdateFlags); break;
                 case Opcode.STM: RewriteStm(); break;
@@ -518,7 +519,7 @@ namespace Reko.Arch.Arm
                 case Opcode.STR: RewriteStr(PrimitiveType.Word32); break;
                 case Opcode.STRB: RewriteStr(PrimitiveType.Byte); break;
                 case Opcode.STRH: RewriteStr(PrimitiveType.UInt16); break;
-                case Opcode.SUB: RewriteBinOp(Operator.ISub, instr.ArchitectureDetail.UpdateFlags); break;
+                case Opcode.SUB: RewriteBinOp(emitter.ISub, instr.ArchitectureDetail.UpdateFlags); break;
                 case Opcode.SVC: RewriteSvc(); break;
                 case Opcode.TEQ: RewriteTeq(); break;
                 case Opcode.TST: RewriteTst(); break;
@@ -740,7 +741,7 @@ namespace Reko.Arch.Arm
         private void RewriteSvc()
         {
             emitter.SideEffect(emitter.Fn(
-                host.EnsurePseudoProcedure("__syscall", VoidType.Instance, 2), 
+                host.EnsurePseudoProcedure(PseudoProcedure.Syscall, VoidType.Instance, 2), 
                 Operand(Dst)));
         }
     }

@@ -1,6 +1,6 @@
 ﻿#region License
 /* 
- * Copyright (C) 1999-2016 John Källén.
+ * Copyright (C) 1999-2017 John Källén.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -678,6 +678,45 @@ namespace Reko.UnitTests.Arch.M68k
         public void M68kdis_move_addr()
         {
             RunTest("move.l\td0,$00FF0F08", 0x23C0, 0x00FF, 0x0F08);    // move.l d0,(dword_FF0F08).l
+        }
+
+        [Test]
+        public void M68kdis_fmovem()
+        {
+            RunTest("fmovem.x\tfp2,-(a7)", 0xF227, 0xE004);
+        }
+
+        [Test]
+        public void M68kdis_fmovem_to_reg()
+        {
+            RunTest("fmovem.x\t$-0018(a6),fp2", 0xF22E, 0xD020, 0xFFE8); 
+        }
+
+        [Test]
+        public void M68kdis_fmoved()
+        {
+            RunTest("fmove.d\tfp0,$-0008(a6)", 0xF22E, 0x7400, 0xFFF8);
+        }
+
+        [Test]
+        public void M68kdis_fdivd()
+        {
+            RunTest("fdiv.d\t#6.0,fp0", 0xF23C, 0x5420, 0x4018, 0x0000, 0x0000, 0x0000);
+        }
+
+        [Test]
+        public void M68kdis_fbnge()
+        {
+            RunTest("fbnge\t$100000E2", 0xF29C, 0x00E0);  
+        }
+
+        [Test]
+        public void M68kdis_fbcc_illegalEncoding()
+        {
+            // This is an fbcc instruction, which uses an encoding
+            // which is not valid with a 68k FPU; it should
+            // decode to an illegal instruction
+            RunTest("illegal\t", 0xF2BC, 0x00E0);
         }
     }
 }

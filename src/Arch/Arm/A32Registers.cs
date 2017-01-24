@@ -1,6 +1,6 @@
 ﻿#region License
 /* 
- * Copyright (C) 1999-2016 John Källén.
+ * Copyright (C) 1999-2017 John Källén.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -49,7 +49,7 @@ namespace Reko.Arch.Arm
 
         public static readonly RegisterStorage[] GpRegs;
 
-        public static readonly FlagRegister cpsr = new FlagRegister("cpsr", PrimitiveType.Word32);
+        public static readonly FlagRegister cpsr = new FlagRegister("cpsr", 31, PrimitiveType.Word32);
 
         public static readonly Dictionary<ArmRegister, RegisterStorage> RegisterByCapstoneID;
 

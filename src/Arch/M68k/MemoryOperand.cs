@@ -1,6 +1,6 @@
 ﻿#region License
 /* 
- * Copyright (C) 1999-2016 John Källén.
+ * Copyright (C) 1999-2017 John Källén.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -80,7 +80,12 @@ namespace Reko.Arch.M68k
 
         public override void Write(bool fExplicit, MachineInstructionWriter writer)
         {
-            writer.Write("#$");
+            writer.Write("#");
+            var pt = Constant.DataType as PrimitiveType;
+            if (pt == null || pt.Domain != Domain.Real)
+            {
+                writer.Write("$");
+            }
             writer.Write(MachineOperand.FormatValue(Constant));
         }
     }

@@ -1,6 +1,6 @@
 ﻿#region License
 /* 
- * Copyright (C) 1999-2016 John Källén.
+ * Copyright (C) 1999-2017 John Källén.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -86,7 +86,7 @@ namespace Reko.Core
                 foreach (var g in sLib.Globals.Where(gg => !string.IsNullOrEmpty(gg.Name) && gg.Type != null))
                 {
                     var dt = this.LoadType(g.Type);
-                    mod.Globals[g.Name] = dt;
+                    mod.GlobalsByName[g.Name] = dt;
                     library.Globals[g.Name] = dt;       //$REVIEW: How to cope with colissions MODULE1!foo and MODULE2!foo?
                 }
             }
@@ -210,6 +210,16 @@ namespace Reko.Core
             else
                 dt = memptr.MemberType.Accept(this);
             return new MemberPointer(baseType, dt, platform.PointerType.Size);
+        }
+
+        public DataType VisitReference(ReferenceType_v1 reference)
+        {
+            DataType dt;
+            if (reference.Referent == null)
+                dt = new UnknownType();
+            else
+                dt = reference.Referent.Accept(this);
+            return new ReferenceTo(dt);
         }
 
         public DataType VisitArray(ArrayType_v1 array)

@@ -1,6 +1,6 @@
 ﻿#region License
 /* 
- * Copyright (C) 1999-2016 John Källén.
+ * Copyright (C) 1999-2017 John Källén.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -79,6 +79,20 @@ namespace Reko.Arch.Mips
             if (opDst.DataType.Size != opSrc.DataType.Size)
                 opSrc = emitter.Cast(arch.WordWidth, opSrc);
             emitter.Assign(opDst, opSrc);
+        }
+
+        private void RewriteLoadLinked32(MipsInstruction instr)
+        {
+            var opSrc = RewriteOperand(instr.op2);
+            var opDst = RewriteOperand(instr.op1);
+            emitter.Assign(opDst, host.PseudoProcedure("__load_linked_32", PrimitiveType.Word32, opSrc));
+        }
+
+        private void RewriteLoadLinked64(MipsInstruction instr)
+        {
+            var opSrc = RewriteOperand(instr.op2);
+            var opDst = RewriteOperand(instr.op1);
+            emitter.Assign(opDst, host.PseudoProcedure("__load_linked_64", PrimitiveType.Word64, opSrc));
         }
 
         private void RewriteLui(MipsInstruction instr)
@@ -209,20 +223,14 @@ namespace Reko.Arch.Mips
             emitter.Assign(opDst, host.PseudoProcedure("__swr", PrimitiveType.Word32, opSrc));
         }
 
-        private void RewriteSxx(MipsInstruction instr, Operator op)
+        private void RewriteSxx(MipsInstruction instr, Func<Expression,Expression,Expression> op)
         {
             var dst = RewriteOperand(instr.op1);
             var src1 = RewriteOperand(instr.op2);
             var src2 = RewriteOperand(instr.op3);
             emitter.Assign(
                 dst,
-                emitter.Cast(
-                    dst.DataType,
-                    new BinaryExpression(
-                        op,
-                        PrimitiveType.Bool,
-                        src1,
-                        src2)));
+                emitter.Cast(dst.DataType, op(src1,src2)));
         }
 
         private void RewriteXor(MipsInstruction instr)

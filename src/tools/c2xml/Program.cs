@@ -1,6 +1,6 @@
 ﻿#region License
 /* 
- * Copyright (C) 1999-2016 John Källén.
+ * Copyright (C) 1999-2017 John Källén.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -60,6 +60,7 @@ Options:
             TextWriter output = Console.Out;
             var sc = new ServiceContainer();
             var rekoCfg = RekoConfigurationService.Load();
+            sc.AddService<IConfigurationService>(rekoCfg);
 
             var docopt = new Docopt();
             IDictionary<string, ValueObject> options;

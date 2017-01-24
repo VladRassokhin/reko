@@ -1,6 +1,6 @@
 #region License
 /* 
- * Copyright (C) 1999-2016 John Källén.
+ * Copyright (C) 1999-2017 John Källén.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -42,7 +42,7 @@ namespace Reko.UnitTests.Mocks
 	public class FakeArchitecture : IProcessorArchitecture
 	{
 		private static RegisterStorage [] registers;
-        private static FlagRegister flags = new FlagRegister("flags", PrimitiveType.Word32);
+        private static FlagRegister flags = new FlagRegister("flags", 70, PrimitiveType.Word32);
         private RtlTraceBuilder rewriters;
 
 		internal const int RegisterCount = 64;
@@ -311,6 +311,16 @@ namespace Reko.UnitTests.Mocks
         }
 
         public Dictionary<string, object> SaveUserOptions()
+        {
+            throw new NotImplementedException();
+        }
+
+        public SortedList<string, int> GetOpcodeNames()
+        {
+            throw new NotImplementedException();
+        }
+
+        public int? GetOpcodeNumber(string name)
         {
             throw new NotImplementedException();
         }

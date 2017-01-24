@@ -1,6 +1,6 @@
 ﻿#region License
 /* 
- * Copyright (C) 1999-2016 John Källén.
+ * Copyright (C) 1999-2017 John Källén.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -97,6 +97,25 @@ namespace Reko.Arch.Z80
             return new Z80Rewriter(this, rdr, state, frame, host);
         }
 
+        public override SortedList<string, int> GetOpcodeNames()
+        {
+            return Enum.GetValues(typeof(Opcode))
+                .Cast<Opcode>()
+                .ToSortedList(
+                    v => v == Opcode.ex_af ? "ex" : Enum.GetName(typeof(Opcode), v),
+                    v => (int)v);
+        }
+
+        public override int? GetOpcodeNumber(string name)
+        {
+            Opcode result;
+            if (string.Compare(name, "ex", StringComparison.InvariantCultureIgnoreCase) == 0)
+                return (int)Opcode.ex_af;
+            if (!Enum.TryParse(name, true, out result))
+                return null;
+            return (int)result;
+        }
+
         public override RegisterStorage GetRegister(int i)
         {
             throw new NotImplementedException();
@@ -167,7 +186,18 @@ namespace Reko.Arch.Z80
 
         public override FlagGroupStorage GetFlagGroup(string name)
         {
-            throw new NotImplementedException();
+            FlagM flags = 0;
+            foreach (char c in name)
+            {
+                switch (c)
+                {
+                case 'Z': flags |= FlagM.ZF; break;
+                default: throw new ArgumentException("name");
+                }
+            }
+            if (flags == 0)
+                throw new ArgumentException("name");
+            return GetFlagGroup((uint)flags);
         }
 
         public override Core.Expressions.Expression CreateStackAccess(Frame frame, int cbOffset, DataType dataType)
@@ -220,7 +250,7 @@ namespace Reko.Arch.Z80
         public static readonly RegisterStorage iy = new RegisterStorage("iy", 6, 0, PrimitiveType.Word16);
         public static readonly RegisterStorage af = new RegisterStorage("af", 0, 0, PrimitiveType.Word16);
 
-        public static readonly FlagRegister f = new FlagRegister("f", PrimitiveType.Byte);
+        public static readonly FlagRegister f = new FlagRegister("f", 28, PrimitiveType.Byte);
 
         public static readonly RegisterStorage i = new RegisterStorage("i", 8, 0, PrimitiveType.Byte);
         public static readonly RegisterStorage r = new RegisterStorage("r", 9, 0, PrimitiveType.Byte);

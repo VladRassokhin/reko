@@ -1,6 +1,6 @@
 #region License
 /* 
- * Copyright (C) 1999-2016 John Källén.
+ * Copyright (C) 1999-2017 John Källén.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -50,7 +50,7 @@ namespace Reko.Analysis
 	{
 		private ProgramDataFlow mpprocflow;
 
-		public GlobalCallRewriter(Program program, ProgramDataFlow mpprocflow, DecompilerEventListener eventListener) : base(program, eventListener)
+		public GlobalCallRewriter(Program program, ProgramDataFlow mpprocflow, DecompilerEventListener eventListener) : base(program)
 		{
 			this.mpprocflow = mpprocflow;
 		}

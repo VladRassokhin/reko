@@ -1,6 +1,6 @@
 ﻿#region License
 /* 
- * Copyright (C) 1999-2016 John Källén.
+ * Copyright (C) 1999-2017 John Källén.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -88,7 +88,7 @@ namespace Reko.UnitTests.Analysis
             bx = frame.EnsureRegister(new RegisterStorage("bx", 3, 0, PrimitiveType.Word16));
             cx = frame.EnsureRegister(new RegisterStorage("cx", 1, 0, PrimitiveType.Word16));
             dx = frame.EnsureRegister(new RegisterStorage("dx", 2, 0, PrimitiveType.Word16));
-            flags = new FlagRegister("flags", PrimitiveType.Word16);
+            flags = new FlagRegister("flags", 4, PrimitiveType.Word16);
             SCZ = frame.EnsureFlagGroup(flags, 7, "SCZ", PrimitiveType.Byte);
             CF = frame.EnsureFlagGroup(flags, arch.CarryFlagMask, "C", PrimitiveType.Bool);
             rw = new LongAddRewriter(m.Procedure, arch);

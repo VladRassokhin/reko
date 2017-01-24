@@ -1,6 +1,6 @@
 #region License
 /* 
- * Copyright (C) 1999-2016 John Källén.
+ * Copyright (C) 1999-2017 John Källén.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -21,6 +21,7 @@
 using Reko.Arch.X86;
 using Reko.Core;
 using Reko.Core.Lib;
+using Reko.Core.Serialization;
 using Reko.Analysis;
 using Reko.UnitTests.Mocks;
 using Reko.UnitTests.TestCode;
@@ -30,6 +31,7 @@ using System.Diagnostics;
 using System.IO;
 using Rhino.Mocks;
 using Reko.Core.Types;
+using Reko.Core.Expressions;
 
 namespace Reko.UnitTests.Analysis
 {
@@ -38,11 +40,13 @@ namespace Reko.UnitTests.Analysis
 	{
 		private DataFlowAnalysis dfa;
         private MockRepository mr;
+        private string CSignature;
 
         [SetUp]
         public void Setup()
         {
             mr = new MockRepository();
+            this.CSignature = null;
         }
 
 		[Test]
@@ -99,6 +103,7 @@ namespace Reko.UnitTests.Analysis
 		{
             Given_FakeWin32Platform(mr);
             this.platform.Stub(p => p.LookupGlobalByName(null, null)).IgnoreArguments().Return(null);
+            this.platform.Stub(p => p.DataTypeFromImportName(null)).IgnoreArguments().Return(null);
             mr.ReplayAll();
             RunFileTest32("Fragments/import32/GlobalHandle.asm", "Analysis/DfaGlobalHandle.txt");
 		}
@@ -226,6 +231,71 @@ done:
 
         [Test]
         [Category(Categories.UnitTests)]
+        public void DfaReg00316()
+        {
+            Given_CSignature("long r316(long a)");
+            RunFileTest("Fragments/regressions/r00316.asm", "Analysis/DfaReg00316.txt");
+        }
+
+        [Test]
+        [Ignore("Fixing this resolves #318")]
+        public void Dfa_318_IncrementedSegmentedPointerOffset()
+        {
+            var sExp =
+            #region Expected
+@"// void ProcedureBuilder(Register word16 cx, Register word16 ds)
+// stackDelta: 0; fpuStackDelta: 0; fpuMaxParam: -1
+// MayUse:  cx ds
+// LiveOut:
+// Trashed: SC bx cx es
+// Preserved: r63
+// ProcedureBuilder
+// Return size: 0
+void ProcedureBuilder(word16 cx, word16 ds)
+ProcedureBuilder_entry:
+	// succ:  l1
+l1:
+	segptr32 es_bx_2 = Mem0[ds:0x0100:word32]
+	// succ:  mHead
+mHead:
+	Mem8[es_bx_2:byte] = 0x00
+	es_bx_4 = es_bx_4 + 0x0001
+	cx = cx - 0x0001
+	branch cx != 0x0000 mHead
+	// succ:  mReturn mHead
+mReturn:
+	return
+	// succ:  ProcedureBuilder_exit
+ProcedureBuilder_exit:
+";
+            #endregion
+
+            RunStringTest(sExp, m =>
+            {
+                var ds = m.Reg16("ds", 8);
+                var es = m.Reg16("es", 9);
+                var cx = m.Reg16("cx", 1);
+                var bx = m.Reg16("bx", 3);
+                var es_bx = m.Frame.EnsureSequence(es.Storage, bx.Storage, PrimitiveType.SegPtr32);
+                var SZ = m.Flags("SZ");
+                var Z = m.Flags("Z");
+
+                m.Assign(es_bx, m.SegMem(PrimitiveType.Word32, ds, m.Word16(0x100)));
+
+                m.Label("mHead");
+                m.SegStore(es, bx, m.Byte(0));
+                m.Assign(bx, m.IAdd(bx, 1));
+                m.Assign(cx, m.ISub(cx, 1));
+                m.Assign(SZ, m.Cond(cx));
+                m.BranchIf(m.Test(ConditionCode.NE, Z), "mHead");
+
+                m.Label("mReturn");
+                m.Return();
+            });
+        }
+
+        [Test]
+        [Category(Categories.UnitTests)]
         public void DfaUnsignedDiv()
         {
             var m = new ProcedureBuilder();
@@ -243,8 +313,34 @@ done:
             RunFileTest(m, "Analysis/DfaUnsignedDiv.txt");
         }
 
+        [Test]
+        [Category(Categories.UnitTests)]
+        public void DfaFpuStackReturn()
+        {
+            RunFileTest("Fragments/fpustackreturn.asm", "Analysis/DfaFpuStackReturn.txt");
+        }
+
+        private void SetCSignatures(Program program)
+        {
+            foreach (var addr in program.Procedures.Keys)
+            {
+                program.User.Procedures.Add(
+                    addr,
+                    new Procedure_v1
+                    {
+                        CSignature = this.CSignature
+                    });
+            }
+        }
+
+        protected void Given_CSignature(string CSignature)
+        {
+            this.CSignature = CSignature;
+        }
+
         protected override void RunTest(Program prog, TextWriter writer)
 		{
+            SetCSignatures(prog);
             IImportResolver importResolver = mr.Stub<IImportResolver>();
             importResolver.Replay();
 			dfa = new DataFlowAnalysis(prog, importResolver, new FakeDecompilerEventListener());
@@ -253,7 +349,8 @@ done:
 			{
 				ProcedureFlow flow = dfa.ProgramDataFlow[proc];
 				writer.Write("// ");
-				flow.Signature.Emit(proc.Name, FunctionType.EmitFlags.ArgumentKind|FunctionType.EmitFlags.LowLevelInfo, writer);
+                var sig = flow.Signature ?? proc.Signature;
+                sig.Emit(proc.Name, FunctionType.EmitFlags.ArgumentKind|FunctionType.EmitFlags.LowLevelInfo, writer);
 				flow.Emit(prog.Architecture, writer);
 				proc.Write(false, writer);
 				writer.WriteLine();

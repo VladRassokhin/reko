@@ -1,6 +1,6 @@
 ﻿#region License
 /* 
- * Copyright (C) 1999-2016 John Källén.
+ * Copyright (C) 1999-2017 John Källén.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -147,18 +147,20 @@ namespace Reko.ImageLoaders.Elf
             if (fileClass == ELFCLASS64)
             {
                 var header64 = Elf64_EHdr.Load(rdr);
-                return new ElfLoader64(this, header64, RawImage, osAbi);
+                return new ElfLoader64(this, header64, RawImage, osAbi, endianness);
             }
             else
             {
                 var header32 = Elf32_EHdr.Load(rdr);
-                return new ElfLoader32(this, header32, RawImage);
+                return new ElfLoader32(this, header32, RawImage, endianness);
             }
         }
 
         public string ReadAsciiString(ulong fileOffset)
         {
             var bytes = RawImage;
+            if (fileOffset >= (ulong) bytes.Length)
+                return "";
             int u = (int)fileOffset;
             while (bytes[u] != 0)
             {

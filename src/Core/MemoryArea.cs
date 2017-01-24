@@ -1,6 +1,6 @@
 #region License
 /* 
- * Copyright (C) 1999-2016 John Källén.
+ * Copyright (C) 1999-2017 John Källén.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -221,8 +221,8 @@ namespace Reko.Core
             {
                 switch (type.Size)
                 {
-                case 4:return Constant.FloatFromBitpattern(ReadLeInt32(abImage, imageOffset));
-                case 8: return Constant.DoubleFromBitpattern(ReadLeInt64(abImage, imageOffset));
+                case 4:return Constant.FloatFromBitpattern(ReadBeInt32(abImage, imageOffset));
+                case 8: return Constant.DoubleFromBitpattern(ReadBeInt64(abImage, imageOffset));
                 default: throw new InvalidOperationException(string.Format("Real type {0} not supported.", type));
                 }
             }

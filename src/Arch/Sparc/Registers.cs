@@ -1,6 +1,6 @@
 ﻿#region License
 /* 
- * Copyright (C) 1999-2016 John Källén.
+ * Copyright (C) 1999-2017 John Källén.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -203,7 +203,7 @@ namespace Reko.Arch.Sparc
             f30= RegisterStorage.Reg32("f30", 30);
             f31= RegisterStorage.Reg32("f31", 31);
 
-            psr = new FlagRegister("psr", PrimitiveType.Word32);
+            psr = new FlagRegister("psr", 40, PrimitiveType.Word32);
 
             N = new FlagGroupStorage(psr, (uint) FlagM.NF, "N", PrimitiveType.Bool);
             Z = new FlagGroupStorage(psr, (uint) FlagM.ZF, "Z", PrimitiveType.Bool);

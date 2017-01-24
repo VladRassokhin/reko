@@ -1,6 +1,6 @@
 ﻿#region License
 /* 
- * Copyright (C) 1999-2016 John Källén.
+ * Copyright (C) 1999-2017 John Källén.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -121,6 +121,15 @@ namespace Reko.Environments.AmigaOS
         public override HashSet<RegisterStorage> CreateImplicitArgumentRegisters()
         {
             return new HashSet<RegisterStorage> { Registers.a7 };
+        }
+
+        public override HashSet<RegisterStorage> CreateTrashedRegisters()
+        {
+            return new HashSet<RegisterStorage>
+            {
+                Registers.d0,
+                Registers.a0,
+            };
         }
 
         public override SystemService FindService(int vector, ProcessorState state)

@@ -1,6 +1,6 @@
 ﻿#region License
 /* 
- * Copyright (C) 1999-2016 John Källén.
+ * Copyright (C) 1999-2017 John Källén.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -259,6 +259,16 @@ namespace Reko.UnitTests.Core
             }
 
             public Dictionary<string, object> SaveUserOptions()
+            {
+                throw new NotImplementedException();
+            }
+
+            public SortedList<string, int> GetOpcodeNames()
+            {
+                throw new NotImplementedException();
+            }
+
+            public int? GetOpcodeNumber(string name)
             {
                 throw new NotImplementedException();
             }

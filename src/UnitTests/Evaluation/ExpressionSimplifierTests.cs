@@ -1,6 +1,6 @@
 #region License
 /* 
- * Copyright (C) 1999-2016 John Källén.
+ * Copyright (C) 1999-2017 John Källén.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -49,7 +49,8 @@ namespace Reko.UnitTests.Evaluation
         private void Given_ExpressionSimplifier()
         {
             SsaIdentifierCollection ssaIds = BuildSsaIdentifiers();
-            simplifier = new ExpressionSimplifier(new SsaEvaluationContext(null, ssaIds));
+            var listener = new FakeDecompilerEventListener();
+            simplifier = new ExpressionSimplifier(new SsaEvaluationContext(null, ssaIds), listener);
         }
 
         private SsaIdentifierCollection BuildSsaIdentifiers()
@@ -136,6 +137,14 @@ namespace Reko.UnitTests.Evaluation
                     PrimitiveType.Real64,
                     m.Load(PrimitiveType.Real32, m.Word32(0x123400))));
             Assert.AreEqual("Mem0[0x00123400:real32]", expr.Accept(simplifier).ToString());
+        }
+
+        [Test]
+        public void Exs_AddAddress32Constant()
+        {
+            Given_ExpressionSimplifier();
+            var expr = m.LoadDw(m.IAdd(Address.Ptr32(0x00123400), 0x56));
+            Assert.AreEqual("Mem0[0x00123456:word32]", expr.Accept(simplifier).ToString());
         }
     }
 }

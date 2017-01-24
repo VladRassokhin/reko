@@ -1,6 +1,6 @@
 ﻿#region License
 /* 
- * Copyright (C) 1999-2016 Pavel Tomin.
+ * Copyright (C) 1999-2017 Pavel Tomin.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -27,6 +27,7 @@ using Reko.Core.Expressions;
 using Reko.Core.Serialization;
 using Reko.Core.Types;
 using Reko.UnitTests.Mocks;
+using System.Linq;
 
 namespace Reko.UnitTests.Analysis
 {
@@ -62,7 +63,15 @@ namespace Reko.UnitTests.Analysis
             Identifier returnValue,
             params Identifier[] parameters)
         {
-            return Ptr32(new FunctionType(returnValue, parameters));
+            var storages = parameters.Select(p => p.Storage as StackStorage)
+                .Where(stg => stg != null);
+            var stackDelta = storages.Count() == 0 ? 4 :
+                storages.Max(stg => stg.StackOffset + stg.DataType.Size);
+            var ft = new FunctionType(returnValue, parameters)
+            {
+                StackDelta = stackDelta,
+            };
+            return Ptr32(ft);
         }
 
         private Identifier VoidId()

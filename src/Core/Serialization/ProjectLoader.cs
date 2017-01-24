@@ -1,6 +1,6 @@
 ﻿#region License
 /* 
- * Copyright (C) 1999-2016 John Källén.
+ * Copyright (C) 1999-2017 John Källén.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -46,17 +46,23 @@ namespace Reko.Core.Serialization
         private Project project;
         private IProcessorArchitecture arch;
         private IPlatform platform;
+        private DecompilerEventListener listener;
 
-        public ProjectLoader(IServiceProvider services, ILoader loader)
-            : this(services, loader, new Project())
+        public ProjectLoader(IServiceProvider services, ILoader loader, DecompilerEventListener listener)
+            : this(services, loader, new Project(), listener)
         {
         }
 
-        public ProjectLoader(IServiceProvider services, ILoader loader, Project project)
+        public ProjectLoader(
+            IServiceProvider services,
+            ILoader loader,
+            Project project,
+            DecompilerEventListener listener)
             : base(services)
         {
             this.loader = loader;
             this.project = project;
+            this.listener = listener;
         }
 
         /// <summary>
@@ -226,11 +232,17 @@ namespace Reko.Core.Serialization
                 var platform = sUser.PlatformOptions != null
                     ? sUser.PlatformOptions.Name
                     : null;
-                program = loader.LoadRawImage(binAbsPath, bytes, arch, platform, address);
+                program = loader.LoadRawImage(binAbsPath, bytes, address, new LoadDetails
+                {
+                    LoaderName = sUser.Loader,
+                    ArchitectureName = arch,
+                    PlatformName = platform,
+                    LoadAddress = sUser.LoadAddress,
+                });
             }
             else
             {
-                program = loader.LoadExecutable(binAbsPath, bytes, address);
+                program = loader.LoadExecutable(binAbsPath, bytes, sUser.Loader, address);
             }
             program.Filename = binAbsPath;
             program.DisassemblyFilename = ConvertToAbsolutePath(projectFilePath, sInput.DisassemblyFilename);
@@ -240,6 +252,7 @@ namespace Reko.Core.Serialization
             program.GlobalsFilename = ConvertToAbsolutePath(projectFilePath, sInput.GlobalsFilename);
             program.EnsureFilenames(program.Filename);
             LoadUserData(sUser, program, program.User);
+            program.User.LoadAddress = address;
             ProgramLoaded.Fire(this, new ProgramEventArgs(program));
             return program;
         }
@@ -247,7 +260,8 @@ namespace Reko.Core.Serialization
 
         public Program VisitInputFile(string projectFilePath, DecompilerInput_v3 sInput)
         {
-            var bytes = loader.LoadImageBytes(ConvertToAbsolutePath(projectFilePath, sInput.Filename), 0);
+            var binAbsPath = ConvertToAbsolutePath(projectFilePath, sInput.Filename);
+            var bytes = loader.LoadImageBytes(binAbsPath, 0);
             var sUser = sInput.User;
             var address = LoadAddress(sUser);
             Program program;
@@ -259,11 +273,16 @@ namespace Reko.Core.Serialization
                 var platform = sUser.PlatformOptions != null
                     ? sUser.PlatformOptions.Name
                     : null;
-                program = loader.LoadRawImage(sInput.Filename, bytes, arch, platform, address);
+                program = loader.LoadRawImage(binAbsPath, bytes, address, new LoadDetails
+                {
+                    ArchitectureName = arch,
+                    PlatformName = platform,
+                    LoadAddress = sUser.LoadAddress,
+                });
             }
             else
             {
-                program = loader.LoadExecutable(sInput.Filename, bytes, address);
+                program = loader.LoadExecutable(sInput.Filename, bytes, null, address);
             }
             this.platform = program.Platform;
             program.Filename = ConvertToAbsolutePath(projectFilePath, sInput.Filename);
@@ -317,12 +336,7 @@ namespace Reko.Core.Serialization
             if (sUser.Procedures != null)
             {
                 user.Procedures = sUser.Procedures
-                    .Select(sup =>
-                    {
-                        Address addr;
-                        program.Architecture.TryParseAddress(sup.Address, out addr);
-                        return new KeyValuePair<Address, Procedure_v1>(addr, sup);
-                    })
+                    .Select(sup => LoadUserProcedure_v1(program, sup))
                     .Where(kv => kv.Key != null)
                     .ToSortedList(kv => kv.Key, kv => kv.Value);
             }
@@ -501,12 +515,7 @@ namespace Reko.Core.Serialization
             if (sUser.Procedures != null)
             {
                 user.Procedures = sUser.Procedures
-                    .Select(sup =>
-                    {
-                        Address addr;
-                        program.Architecture.TryParseAddress(sup.Address, out addr);
-                        return new KeyValuePair<Address, Procedure_v1>(addr, sup);
-                    })
+                    .Select(sup => LoadUserProcedure_v1(program, sup))
                     .Where(kv => kv.Key != null)
                     .ToSortedList(kv => kv.Key, kv => kv.Value);
             }
@@ -547,7 +556,7 @@ namespace Reko.Core.Serialization
         {
             var binFilename = ConvertToAbsolutePath(projectFilePath, sInput.Filename);
             var bytes = loader.LoadImageBytes(binFilename, 0);
-            var program = loader.LoadExecutable(binFilename, bytes, null);
+            var program = loader.LoadExecutable(binFilename, bytes, null, null);
             program.Filename = binFilename;
             LoadUserData(sInput, program, program.User);
 
@@ -566,12 +575,7 @@ namespace Reko.Core.Serialization
             if (sInput.UserProcedures != null)
             {
                 user.Procedures = sInput.UserProcedures
-                        .Select(sup =>
-                        {
-                            Address addr;
-                            program.Architecture.TryParseAddress(sup.Address, out addr);
-                            return new KeyValuePair<Address, Procedure_v1>(addr, sup);
-                        })
+                        .Select(sup => LoadUserProcedure_v1(program, sup))
                         .Where(kv => kv.Key != null)
                         .ToSortedList(kv => kv.Key, kv => kv.Value);
             }
@@ -595,6 +599,23 @@ namespace Reko.Core.Serialization
                 program.User.Heuristics.Add("shingle");
             }
             program.EnvironmentMetadata = project.LoadedMetadata;
+        }
+
+        private KeyValuePair<Address, Procedure_v1> LoadUserProcedure_v1(
+            Program program,
+            Procedure_v1 sup)
+        {
+            Address addr;
+            program.Architecture.TryParseAddress(sup.Address, out addr);
+            if (!sup.Decompile && sup.Signature == null && string.IsNullOrEmpty(sup.CSignature))
+            {
+                listener.Warn(
+                    listener.CreateAddressNavigator(program, addr),
+                    "User procedure '{0}' has been marked 'no decompile' but its signature " +
+                    "has not been specified.",
+                    sup.Name);
+            }
+            return new KeyValuePair<Address, Procedure_v1>(addr, sup);
         }
 
         public MetadataFile VisitMetadataFile(string projectFilePath, MetadataFile_v3 sMetadata)

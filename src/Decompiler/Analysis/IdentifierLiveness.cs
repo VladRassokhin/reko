@@ -1,6 +1,6 @@
 #region License
 /* 
- * Copyright (C) 1999-2016 John Källén.
+ * Copyright (C) 1999-2017 John Källén.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -313,12 +313,14 @@ namespace Reko.Analysis
 			}
 			else
 			{
-				if (liveStackVars.ContainsKey(tmp))
-				{
-					liveStackVars[tmp] = Math.Max(useBitSize, liveStackVars[tmp]);
-				}
-				else
-					liveStackVars.Add(tmp, useBitSize != 0 ? useBitSize : id.DataType.BitSize);
+                if (liveStackVars.ContainsKey(tmp))
+                {
+                    liveStackVars[tmp] = Math.Max(useBitSize, liveStackVars[tmp]);
+                }
+                else
+                {
+                    liveStackVars.Add(tmp, useBitSize != 0 ? useBitSize : (int)tmp.DataType.BitSize);
+                }
 			}
             return null;
 		}
