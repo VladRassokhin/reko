@@ -5,6 +5,7 @@ TestResults
 /src/.vs
 *.csproj.user
 *.vcxproj.user
+*.userprefs
 *.opensdf
 *.sdf
 *.suo
