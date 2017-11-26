@@ -534,6 +534,8 @@
     <Compile Include="Mocks\WhileLoopFragment.cs" />
     <Compile Include="Mocks\MockFactory.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="Scanning\BackwardSlicer.cs" />
+    <Compile Include="Scanning\BackwardSlicerTests.cs" />
     <Compile Include="Scanning\BlockClonerTests.cs" />
     <Compile Include="Scanning\BlockWorkitemTests.cs" />
     <Compile Include="Scanning\EscapedAccessRewriterTests.cs" />
@@ -544,6 +546,7 @@
     <Compile Include="Scanning\InstructionTrieTests.cs" />
     <Compile Include="Scanning\InterProceduralJumpTests.cs" />
     <Compile Include="Scanning\ProcedureDetectorTests.cs" />
+    <Compile Include="Scanning\RtlBackwalkHost.cs" />
     <Compile Include="Scanning\Scanner.M68kTests.cs" />
     <Compile Include="Scanning\ScannerInLinqTests.cs" />
     <Compile Include="Scanning\ScannerTestPrograms.cs" />
