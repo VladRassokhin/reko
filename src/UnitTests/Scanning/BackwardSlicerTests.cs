@@ -146,8 +146,8 @@ namespace Reko.UnitTests.Scanning
             var step = bwslc.Step();
             Assert.IsTrue(start);
             Assert.IsTrue(step);
-            Assert.AreEqual(1, bwslc.Roots.Count);
-            Assert.AreEqual("r2", bwslc.Roots.First().Key.Name);
+            Assert.AreEqual(1, bwslc.Live.Count);
+            Assert.AreEqual("r2", bwslc.Live.First().Key.Name);
         }
     }
 }
