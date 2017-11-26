@@ -46,6 +46,7 @@ namespace Reko.UnitTests.Scanning
         }
 
         public Dictionary<Storage, BitRange> Roots { get; private set; }
+        public Dictionary<Storage, BitRange> Live { get; private set; }
 
         public bool Start()
         {
@@ -58,12 +59,23 @@ namespace Reko.UnitTests.Scanning
                 Debug.Print("No indirect registers?");
                 return false;
             }
-            this.Roots = sr.LiveStorages;
+            this.Roots = new Dictionary<Storage, BitRange>(sr.LiveStorages);
+            this.Live = sr.LiveStorages;
             return true;
         }
 
         public bool Step()
         {
+            --iInstr;
+            if (iInstr < 0)
+            {
+                throw new NotImplementedException();
+            }
+            var sr = instrs[iInstr].Accept(this);
+            foreach (var de in sr.LiveStorages)
+            {
+                this.Live[de.Key] = de.Value;
+            }
             return true;
         }
      
@@ -87,7 +99,18 @@ namespace Reko.UnitTests.Scanning
 
         public SlicerResult VisitAssignment(RtlAssignment ass)
         {
-            throw new NotImplementedException();
+            var id = ass.Dst as Identifier;
+            if (id != null)
+            {
+                //$TODO: create edges in graph. storages....
+                Live.Remove(id.Storage);
+            }
+            var se = ass.Src.Accept(
+                this,
+                new BitRange(
+                    (short)id.Storage.BitAddress,
+                    (short)(id.Storage.BitAddress + id.Storage.BitSize)));
+            return se;
         }
 
         public SlicerResult VisitBinaryExpression(BinaryExpression binExp, BitRange ctx)
