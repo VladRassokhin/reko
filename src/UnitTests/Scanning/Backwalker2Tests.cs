@@ -133,5 +133,14 @@ namespace Reko.UnitTests.Scanning
         //          m.Word32(0x001066A2), 
         //          m.Cast(PrimitiveType.Int32, m.Cast(PrimitiveType.Int16, d1))),
         //      RtlClass.Transfer);
+
+        // Use case located by @smx-smx:  the rep movsd shouldn't affect the value of edx nor ecx.
+
+        //007861C8 shr ecx,02
+        //007861CB and edx,03
+        //007861CE cmp ecx,08
+        //007861D1 jc 007861FC
+        //007861D3 rep movsd 
+        //007861D5 jmp dword ptr[007862E8 + edx * 4]
     }
 }
