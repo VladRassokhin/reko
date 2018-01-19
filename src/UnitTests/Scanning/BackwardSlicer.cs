@@ -41,13 +41,18 @@ namespace Reko.UnitTests.Scanning
         {
             this.block = block;
             this.host = host;
-            this.instrs = this.block.Instructions.SelectMany(rtlc => rtlc.Instructions).ToList();
+            var b = block;
+            this.instrs = FlattenInstructions(b);
             this.Roots = new Dictionary<Storage, BitRange>();
         }
 
         public Dictionary<Storage, BitRange> Roots { get; private set; }
         public Dictionary<Storage, BitRange> Live { get; private set; }
 
+        private static List<RtlInstruction> FlattenInstructions(RtlBlock b)
+        {
+            return b.Instructions.SelectMany(rtlc => rtlc.Instructions).ToList();
+        }
         public bool Start()
         {
             this.Roots.Clear();
@@ -67,9 +72,14 @@ namespace Reko.UnitTests.Scanning
         public bool Step()
         {
             --iInstr;
-            if (iInstr < 0)
+            while (iInstr < 0)
             {
-                throw new NotImplementedException();
+                var pred = host.GetSinglePredecessor(block);    //$TODO: do all predecessors, add to queue.
+                if (pred == null)
+                    return false;
+                block = pred;
+                instrs = FlattenInstructions(block);
+                iInstr = instrs.Count - 1;
             }
             var sr = instrs[iInstr].Accept(this);
             foreach (var de in sr.LiveStorages)
