@@ -27,16 +27,19 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using Reko.Core.Expressions;
+using Reko.Core.Lib;
 
 namespace Reko.UnitTests.Scanning
 {
     public class RtlBackwalkHost : IBackWalkHost<RtlBlock, RtlInstruction>
     {
         private Program program;
+        private DirectedGraph<RtlBlock> graph;
 
-        public RtlBackwalkHost(Program program)
+        public RtlBackwalkHost(Program program, DirectedGraph<RtlBlock> graph)
         {
             this.program = program;
+            this.graph = graph;
         }
 
         public Tuple<Expression, Expression> AsAssignment(RtlInstruction instr)
@@ -61,7 +64,8 @@ namespace Reko.UnitTests.Scanning
 
         public RtlBlock GetSinglePredecessor(RtlBlock block)
         {
-            throw new NotImplementedException();
+            var p = graph.Predecessors(block).SingleOrDefault();
+            return p;
         }
 
         public AddressRange GetSinglePredecessorAddressRange(Address block)

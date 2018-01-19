@@ -29,6 +29,7 @@ using System.Text;
 using System.Threading.Tasks;
 using Reko.UnitTests.Mocks;
 using Reko.Core.Expressions;
+using Reko.Core.Lib;
 
 namespace Reko.UnitTests.Scanning
 {
@@ -39,6 +40,7 @@ namespace Reko.UnitTests.Scanning
         private FakeArchitecture arch;
         private RtlBackwalkHost host;
         private Program program;
+        private DirectedGraph<RtlBlock> graph;
 
         [SetUp]
         public void Setup()
@@ -54,7 +56,8 @@ namespace Reko.UnitTests.Scanning
                         AccessMode.ReadExecute))
             };
             binder = new StorageBinder();
-            host = new RtlBackwalkHost(program);
+            graph = new DiGraph<RtlBlock>();
+            host = new RtlBackwalkHost(program, graph);
         }
 
         private Identifier Reg(int rn)
@@ -146,6 +149,33 @@ namespace Reko.UnitTests.Scanning
             var step = bwslc.Step();
             Assert.IsTrue(start);
             Assert.IsTrue(step);
+            Assert.AreEqual(1, bwslc.Live.Count);
+            Assert.AreEqual("r2", bwslc.Live.First().Key.Name);
+        }
+
+        [Test(Description = "Trace across a jump")]
+        public void Bwslc_AcrossJump()
+        {
+            var r1 = Reg(1);
+            var r2 = Reg(2);
+
+            var b = Given_Block(0x100);
+            Given_Instrs(b, m => { m.Assign(r1, m.Shl(r2, 2)); });
+            Given_Instrs(b, m => { m.Goto(Address.Ptr32(0x200)); });
+
+            var b2 = Given_Block(0x200);
+            Given_Instrs(b2, m => { m.Goto(m.IAdd(r1, 0x00123400)); });
+
+            graph.Nodes.Add(b);
+            graph.Nodes.Add(b2);
+            graph.AddEdge(b, b2);
+
+            var bwslc = new BackwardSlicer(b2, host);
+            var start = bwslc.Start();  // indirect jump
+            bwslc.Step();    // direct jump
+            var step = bwslc.Step();    // shift left
+            Assert.IsTrue(start);   // indirect jmp
+            Assert.IsTrue(step);    // direct jmp
             Assert.AreEqual(1, bwslc.Live.Count);
             Assert.AreEqual("r2", bwslc.Live.First().Key.Name);
         }
