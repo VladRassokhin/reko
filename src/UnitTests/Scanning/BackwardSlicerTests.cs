@@ -243,7 +243,7 @@ namespace Reko.UnitTests.Scanning
             Assert.AreEqual("r2",
                 string.Join(",", bwslc.Live.Select(l => l.Key.ToString()).OrderBy(n => n)));
             Assert.AreEqual("(r2 << 0x02) + 0x00123400", bwslc.JumpTableFormat.ToString());
-            Assert.AreEqual("r2 <=u 0x00000004", bwslc.JumpTableIndexInterval.ToString());
+            Assert.AreEqual("1[0,4]", bwslc.JumpTableIndexInterval.ToString());
         }
     }
 }
