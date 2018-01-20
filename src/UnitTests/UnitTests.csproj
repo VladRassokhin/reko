@@ -555,6 +555,7 @@
     <Compile Include="Scanning\ShingledScannerTests.cs" />
     <Compile Include="Scanning\StorageBinderTests.cs" />
     <Compile Include="Scanning\StringFinderTests.cs" />
+    <Compile Include="Scanning\ValueSetEvaluatorTests.cs" />
     <Compile Include="Scanning\VarargsFormatScannerTests.cs" />
     <Compile Include="Scanning\VectorBuilderTests.cs" />
     <Compile Include="Structure\AbsynCodeEmitter.cs" />
