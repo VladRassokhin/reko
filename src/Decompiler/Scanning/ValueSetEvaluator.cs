@@ -105,6 +105,11 @@ namespace Reko.Scanning
             {
                 return vs.Truncate(cast.DataType);
             }
+            var pt = cast.DataType as PrimitiveType;
+            if (pt != null && pt.Domain == Domain.SignedInt)
+            {
+                return vs.SignExtend(cast.DataType);
+            }
             throw new NotImplementedException();
         }
 

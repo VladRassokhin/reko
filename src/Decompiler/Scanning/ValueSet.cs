@@ -44,6 +44,7 @@ namespace Reko.Scanning
         public abstract ValueSet Add(Constant right);
         public abstract ValueSet And(Constant cRight);
         public abstract ValueSet Shl(Constant cRight);
+        public abstract ValueSet SignExtend(DataType dataType);
 
         public abstract ValueSet Truncate(DataType dt);
     }
@@ -114,6 +115,11 @@ namespace Reko.Scanning
                     SI.High << v));
         }
 
+        public override ValueSet SignExtend(DataType dataType)
+        {
+            throw new NotImplementedException();
+        }
+
         public override ValueSet Truncate(DataType dt)
         {
             if (SI.Stride < 0)
@@ -154,6 +160,13 @@ namespace Reko.Scanning
             get { return values; }
         }
 
+        private ConcreteValueSet Map(DataType dt, Func<Constant,Constant> map)
+        {
+            return new ConcreteValueSet(
+                dt,
+                values.Select(map).ToArray());
+        }
+
         public override ValueSet Add(Constant right)
         {
             throw new NotImplementedException();
@@ -174,9 +187,20 @@ namespace Reko.Scanning
             throw new NotImplementedException();
         }
 
+        public override ValueSet SignExtend(DataType dt)
+        {
+            int bits = this.DataType.BitSize;
+            return Map(dt, v => Constant.Create(
+                dt,
+                Bits.SignExtend(v.ToUInt64(), bits)));
+        }
+
         public override ValueSet Truncate(DataType dt)
         {
-            throw new NotImplementedException();
+            var mask = (1L << dt.BitSize) - 1;
+            return Map(
+                dt, 
+                v => Constant.Create(dt, v.ToInt64() & mask));
         }
 
         public override string ToString()
