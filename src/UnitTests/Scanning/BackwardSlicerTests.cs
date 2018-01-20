@@ -236,12 +236,13 @@ namespace Reko.UnitTests.Scanning
             graph.AddEdge(b, b2);
 
             var bwslc = new BackwardSlicer(b2, host);
-            Assert.IsTrue(bwslc.Start());  // indirect jump
+            Assert.IsTrue(bwslc.Start());   // indirect jump
             Assert.IsTrue(bwslc.Step());    // shift left
             Assert.IsTrue(bwslc.Step());    // branch
-            Assert.IsFalse(bwslc.Step());    // test
+            Assert.IsFalse(bwslc.Step());   // test
             Assert.AreEqual("r2",
                 string.Join(",", bwslc.Live.Select(l => l.Key.ToString()).OrderBy(n => n)));
+            Assert.AreEqual("@@@", bwslc.JumpTableFormat);
 
         }
     }

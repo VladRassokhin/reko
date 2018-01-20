@@ -1,0 +1,180 @@
+﻿#region License
+/* 
+ * Copyright (C) 1999-2017 John Källén.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2, or (at your option)
+ * any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; see the file COPYING.  If not, write to
+ * the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.
+ */
+#endregion
+
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+
+namespace Reko.Core.Expressions
+{
+    public class ExpressionReplacer : ExpressionVisitor<Expression>
+    {
+        private ExpressionValueComparer cmp;
+        private Expression original;
+        private Expression replacement;
+
+        private ExpressionReplacer(Expression original, Expression replacement)
+        {
+            this.original = original;
+            this.replacement = replacement;
+            this.cmp = new ExpressionValueComparer();
+        }
+
+        /// <summary>
+        /// Replaces all occurrances of <paramref name="original"/> in 
+        /// <paramref name="root"/> with <paramref name="replacement" />.
+        /// </summary>
+        /// <returns></returns>
+        public static Expression Replace(Expression original, Expression replacement, Expression root)
+        {
+            var rep = new ExpressionReplacer(original, replacement);
+            return root.Accept(rep);
+        }
+
+        public Expression VisitAddress(Address addr)
+        {
+            throw new NotImplementedException();
+        }
+
+        public Expression VisitApplication(Application appl)
+        {
+            throw new NotImplementedException();
+        }
+
+        public Expression VisitArrayAccess(ArrayAccess acc)
+        {
+            throw new NotImplementedException();
+        }
+
+        public Expression VisitBinaryExpression(BinaryExpression binExp)
+        {
+            if (cmp.Equals(binExp, original))
+                return replacement;
+            var left = binExp.Left.Accept(this);
+            var right = binExp.Right.Accept(this);
+            return new BinaryExpression(binExp.Operator, binExp.DataType, left, right);
+        }
+
+        public Expression VisitCast(Cast cast)
+        {
+            if (cmp.Equals(cast, original))
+                return replacement;
+            var exp = cast.Expression.Accept(this);
+            return new Cast(cast.DataType, exp);
+        }
+
+        public Expression VisitConditionalExpression(ConditionalExpression cond)
+        {
+            throw new NotImplementedException();
+        }
+
+        public Expression VisitConditionOf(ConditionOf cof)
+        {
+            throw new NotImplementedException();
+        }
+
+        public Expression VisitConstant(Constant c)
+        {
+            throw new NotImplementedException();
+        }
+
+        public Expression VisitDepositBits(DepositBits d)
+        {
+            throw new NotImplementedException();
+        }
+
+        public Expression VisitDereference(Dereference deref)
+        {
+            throw new NotImplementedException();
+        }
+
+        public Expression VisitFieldAccess(FieldAccess acc)
+        {
+            throw new NotImplementedException();
+        }
+
+        public Expression VisitIdentifier(Identifier id)
+        {
+            throw new NotImplementedException();
+        }
+
+        public Expression VisitMemberPointerSelector(MemberPointerSelector mps)
+        {
+            throw new NotImplementedException();
+        }
+
+        public Expression VisitMemoryAccess(MemoryAccess access)
+        {
+            throw new NotImplementedException();
+        }
+
+        public Expression VisitMkSequence(MkSequence seq)
+        {
+            throw new NotImplementedException();
+        }
+
+        public Expression VisitOutArgument(OutArgument outArgument)
+        {
+            throw new NotImplementedException();
+        }
+
+        public Expression VisitPhiFunction(PhiFunction phi)
+        {
+            throw new NotImplementedException();
+        }
+
+        public Expression VisitPointerAddition(PointerAddition pa)
+        {
+            throw new NotImplementedException();
+        }
+
+        public Expression VisitProcedureConstant(ProcedureConstant pc)
+        {
+            throw new NotImplementedException();
+        }
+
+        public Expression VisitScopeResolution(ScopeResolution scopeResolution)
+        {
+            throw new NotImplementedException();
+        }
+
+        public Expression VisitSegmentedAccess(SegmentedAccess access)
+        {
+            throw new NotImplementedException();
+        }
+
+        public Expression VisitSlice(Slice slice)
+        {
+            throw new NotImplementedException();
+        }
+
+        public Expression VisitTestCondition(TestCondition tc)
+        {
+            throw new NotImplementedException();
+        }
+
+        public Expression VisitUnaryExpression(UnaryExpression unary)
+        {
+            throw new NotImplementedException();
+        }
+    }
+}
