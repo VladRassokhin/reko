@@ -31,6 +31,12 @@ namespace Reko.Scanning
 {
     public abstract class ValueSet
     {
+        public ValueSet(DataType dt)
+        {
+            this.DataType = dt;
+        }
+
+        public DataType DataType { get; }
         public abstract IEnumerable<Constant> Values { get; }
 
         public abstract ValueSet Add(ValueSet right);
@@ -44,7 +50,7 @@ namespace Reko.Scanning
         public DataType DataType;
         public StridedInterval SI;
 
-        public IntervalValueSet(DataType dt, StridedInterval si)
+        public IntervalValueSet(DataType dt, StridedInterval si) : base(dt)
         {
             this.DataType = dt;
             this.SI = si;
@@ -117,7 +123,7 @@ namespace Reko.Scanning
     {
         private Constant[] values;
 
-        public ConcreteValueSet(Constant[] values)
+        public ConcreteValueSet(DataType dt, Constant[] values) : base(dt)
         {
             this.values = values;
         }
