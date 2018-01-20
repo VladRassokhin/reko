@@ -20,6 +20,7 @@
 
 using Reko.Core;
 using Reko.Core.Expressions;
+using Reko.Core.Types;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -30,6 +31,8 @@ namespace Reko.Scanning
 {
     public abstract class ValueSet
     {
+        public abstract IEnumerable<Constant> Values { get; }
+
         public abstract ValueSet Add(ValueSet right);
         public abstract ValueSet Add(Constant right);
         public abstract ValueSet And(Constant cRight);
@@ -38,11 +41,35 @@ namespace Reko.Scanning
 
     public class IntervalValueSet : ValueSet
     {
+        public DataType DataType;
         public StridedInterval SI;
 
-        public IntervalValueSet(StridedInterval si)
+        public IntervalValueSet(DataType dt, StridedInterval si)
         {
+            this.DataType = dt;
             this.SI = si;
+        }
+
+        public override IEnumerable<Constant> Values
+        {
+            get
+            {
+                if (SI.Stride < 0)
+                    yield break;
+                else if (SI.Stride == 0)
+                    yield return Constant.Create(DataType, SI.Low);
+                else
+                {
+                    long v = SI.Low; 
+                    while (v <= SI.High)
+                    {
+                        yield return Constant.Create(DataType, v);
+                        if (v == SI.High)
+                            yield break;
+                        v += SI.Stride;
+                    }
+                }
+            }
         }
 
         public override ValueSet Add(ValueSet right)
@@ -54,6 +81,7 @@ namespace Reko.Scanning
         {
             long v = right.ToInt64();
             return new IntervalValueSet(
+                this.DataType,
                 StridedInterval.Create(
                     SI.Stride,
                     SI.Low + v,
@@ -64,6 +92,7 @@ namespace Reko.Scanning
         {
             long v = right.ToInt64();
             return new IntervalValueSet(
+                this.DataType,
                 StridedInterval.Create(1, 0, v));
         }
 
@@ -71,6 +100,7 @@ namespace Reko.Scanning
         {
             int v = (int) cRight.ToInt64();
             return new IntervalValueSet(
+                this.DataType,
                 StridedInterval.Create(
                     SI.Stride << v,
                     SI.Low << v,
@@ -85,6 +115,18 @@ namespace Reko.Scanning
 
     public class ConcreteValueSet : ValueSet
     {
+        private Constant[] values;
+
+        public ConcreteValueSet(Constant[] values)
+        {
+            this.values = values;
+        }
+
+        public override IEnumerable<Constant> Values
+        {
+            get { return values; }
+        }
+
         public override ValueSet Add(Constant right)
         {
             throw new NotImplementedException();
@@ -103,6 +145,11 @@ namespace Reko.Scanning
         public override ValueSet Shl(Constant cRight)
         {
             throw new NotImplementedException();
+        }
+
+        public override string ToString()
+        {
+            return $"[{string.Join(",", values.AsEnumerable())}]";
         }
     }
 }
