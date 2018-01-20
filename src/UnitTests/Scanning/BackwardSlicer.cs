@@ -38,7 +38,6 @@ namespace Reko.UnitTests.Scanning
         private IBackWalkHost<RtlBlock, RtlInstruction> host;
         private List<RtlInstruction> instrs;
         private Address addrSucc;       // the block from which we traced.
-        private Expression testExpr;    // an expression that tests the index 
         private ConditionCode ccNext;   // The condition code that is used in a branch.
         private ExpressionValueComparer cmp;
         private Expression assignLhs;   // current LHS
@@ -57,6 +56,9 @@ namespace Reko.UnitTests.Scanning
         public Dictionary<Expression, BitRange> Roots { get; private set; }
         public Dictionary<Expression, BitRange> Live { get; private set; }
         public Expression JumpTableFormat { get; private set; }  // an expression that computes the destination addresses.
+
+        public Expression JumpTableIndex { get; private set; }    // an expression that tests the index 
+        public Expression JumpTableIndexInterval { get; private set; }    // an expression that tests the index 
 
         private static List<RtlInstruction> FlattenInstructions(RtlBlock b)
         {
@@ -159,6 +161,7 @@ namespace Reko.UnitTests.Scanning
                 bool wasLive = Live.Remove(id); 
                 if (!wasLive)
                 {
+                    // This assignment doesn't affect the end result.
                     return new SlicerResult();   
                 }
                 //$TODO: create edges in graph. storages....
@@ -169,6 +172,7 @@ namespace Reko.UnitTests.Scanning
                 new BitRange(
                     (short)id.Storage.BitAddress,
                     (short)(id.Storage.BitAddress + id.Storage.BitSize)));
+            this.JumpTableFormat = ExpressionReplacer.Replace(ass.Dst, ass.Src, JumpTableFormat);
             this.assignLhs = null;
             return se;
         }
@@ -225,9 +229,9 @@ namespace Reko.UnitTests.Scanning
                     {
                         if (cmp.Equals(live, bin.Left))
                         {
-                            if (cmp.Equals(assignLhs, this.testExpr))
+                            if (cmp.Equals(assignLhs, this.JumpTableIndex))
                             {
-                                this.testExpr = MakeTestExpression_ISub(bin.Left, bin.Right);
+                                this.JumpTableIndexInterval = MakeTestExpression_ISub(bin.Left, bin.Right);
                                 return null;
                             }
                         }
@@ -237,7 +241,7 @@ namespace Reko.UnitTests.Scanning
                     throw new NotImplementedException();
             }
             var se = cof.Expression.Accept(this, RangeOf(cof.Expression.DataType));
-            this.testExpr = cof.Expression;
+            this.JumpTableIndex = cof.Expression;
             return se;
         }
       
@@ -377,7 +381,7 @@ namespace Reko.UnitTests.Scanning
         {
             var se = tc.Expression.Accept(this, RangeOf(tc.Expression.DataType));
             this.ccNext = tc.ConditionCode;
-            this.testExpr = tc.Expression;
+            this.JumpTableIndex = tc.Expression;
             return se;
         }
 
