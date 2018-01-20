@@ -66,6 +66,12 @@ namespace Reko.UnitTests.Scanning
             return binder.EnsureRegister(reg);
         }
 
+        private Identifier Cc(string name)
+        {
+            var cc = arch.GetFlagGroup(name);
+            return binder.EnsureFlagGroup(cc);
+        }
+
         private RtlBlock Given_Block(uint uAddr)
         {
             var b = new RtlBlock(Address.Ptr32(uAddr), $"l{uAddr:X8}");
@@ -94,7 +100,7 @@ namespace Reko.UnitTests.Scanning
             var bwslc = new BackwardSlicer(b, host);
             var sr =  b.Instructions.Last().Instructions.Last().Accept(bwslc);
 
-            Assert.AreEqual(sr.LiveStorages[r1.Storage], new BitRange(0, 32));
+            Assert.AreEqual(sr.LiveExprs[r1], new BitRange(0, 32));
         }
 
         [Test]
@@ -107,7 +113,7 @@ namespace Reko.UnitTests.Scanning
             var bwslc = new BackwardSlicer(b, host);
             var sr = b.Instructions.Last().Instructions.Last().Accept(bwslc);
 
-            Assert.AreEqual(0, sr.LiveStorages.Count);
+            Assert.AreEqual(0, sr.LiveExprs.Count);
         }
 
         [Test]
@@ -150,7 +156,7 @@ namespace Reko.UnitTests.Scanning
             Assert.IsTrue(start);
             Assert.IsTrue(step);
             Assert.AreEqual(1, bwslc.Live.Count);
-            Assert.AreEqual("r2", bwslc.Live.First().Key.Name);
+            Assert.AreEqual("r2", bwslc.Live.First().Key.ToString());
         }
 
         [Test(Description = "Trace across a jump")]
@@ -174,10 +180,69 @@ namespace Reko.UnitTests.Scanning
             var start = bwslc.Start();  // indirect jump
             bwslc.Step();    // direct jump
             var step = bwslc.Step();    // shift left
-            Assert.IsTrue(start);   // indirect jmp
-            Assert.IsTrue(step);    // direct jmp
+            Assert.IsTrue(start); 
+            Assert.IsTrue(step); 
             Assert.AreEqual(1, bwslc.Live.Count);
-            Assert.AreEqual("r2", bwslc.Live.First().Key.Name);
+            Assert.AreEqual("r2", bwslc.Live.First().Key.ToString());
+        }
+
+        [Test(Description = "Trace across a branch where the branch was taken.")]
+        public void Bwslc_BranchTaken()
+        {
+            var r1 = Reg(1);
+            var r2 = Reg(2);
+            var cz = Cc("CZ");
+
+            var b = Given_Block(0x100);
+            Given_Instrs(b, m => { m.Branch(m.Test(ConditionCode.ULE, cz), Address.Ptr32(0x200), RtlClass.ConditionalTransfer); });
+
+            var b2 = Given_Block(0x200);
+            Given_Instrs(b2, m => { m.Assign(r1, m.Shl(r2, 2)); });
+            Given_Instrs(b2, m => { m.Goto(m.IAdd(r1, 0x00123400)); });
+
+            graph.Nodes.Add(b);
+            graph.Nodes.Add(b2);
+            graph.AddEdge(b, b2);
+
+            var bwslc = new BackwardSlicer(b2, host);
+            var start = bwslc.Start();  // indirect jump
+            bwslc.Step();    // shift left
+            var step = bwslc.Step();    // branch
+
+            Assert.IsTrue(start);
+            Assert.IsTrue(step);
+            Assert.AreEqual(2, bwslc.Live.Count);
+            Assert.AreEqual("CZ,r2", 
+                string.Join(",", bwslc.Live.Select(l => l.Key.ToString()).OrderBy(n => n)));
+        }
+
+        [Test(Description = "Trace until the comparison that gates the jump is encountered.")]
+        public void Bwslc_RangeCheck()
+        {
+            var r1 = Reg(1);
+            var r2 = Reg(2);
+            var cz = Cc("CZ");
+
+            var b = Given_Block(0x100);
+            Given_Instrs(b, m => { m.Assign(cz, m.Cond(m.ISub(r2, 4))); });
+            Given_Instrs(b, m => { m.Branch(m.Test(ConditionCode.ULE, cz), Address.Ptr32(0x200), RtlClass.ConditionalTransfer); });
+
+            var b2 = Given_Block(0x200);
+            Given_Instrs(b2, m => { m.Assign(r1, m.Shl(r2, 2)); });
+            Given_Instrs(b2, m => { m.Goto(m.IAdd(r1, 0x00123400)); });
+
+            graph.Nodes.Add(b);
+            graph.Nodes.Add(b2);
+            graph.AddEdge(b, b2);
+
+            var bwslc = new BackwardSlicer(b2, host);
+            Assert.IsTrue(bwslc.Start());  // indirect jump
+            Assert.IsTrue(bwslc.Step());    // shift left
+            Assert.IsTrue(bwslc.Step());    // branch
+            Assert.IsFalse(bwslc.Step());    // test
+            Assert.AreEqual("r2",
+                string.Join(",", bwslc.Live.Select(l => l.Key.ToString()).OrderBy(n => n)));
+
         }
     }
 }
