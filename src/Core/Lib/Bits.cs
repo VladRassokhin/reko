@@ -51,7 +51,7 @@ namespace Reko.Core.Lib
         {
             ulong r;      // resulting sign-extended number
             ulong m = 1LU << (b - 1); // mask can be pre-computed if b is fixed
-            w = w & ((1U << b) - 1);  // (Skip this if bits in x above position b are already zero.)
+            w = w & ((1LU << b) - 1);  // (Skip this if bits in x above position b are already zero.)
             r = (w ^ m) - m;
             return r;
         }

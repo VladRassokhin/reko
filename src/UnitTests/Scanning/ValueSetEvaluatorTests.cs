@@ -55,9 +55,18 @@ namespace Reko.UnitTests.Scanning
             };
         }
 
-        private ValueSet VS(int stride, long low, long high)
+        private ValueSet IVS(int stride, long low, long high)
         {
             return new IntervalValueSet(PrimitiveType.Word32, StridedInterval.Create(stride, low, high));
+        }
+
+        private ValueSet CVS(params int [] values)
+        {
+            return new ConcreteValueSet(
+                PrimitiveType.Word32,
+                values
+                    .Select(v => Constant.Create(PrimitiveType.Word32, v))
+                    .ToArray());
         }
 
         [Test]
@@ -68,7 +77,7 @@ namespace Reko.UnitTests.Scanning
                 program,
                 new Dictionary<Expression, ValueSet>(new ExpressionValueComparer())
                 {
-                    { r1, VS(4, 0, 20) }
+                    { r1, IVS(4, 0, 20) }
                 });
             var vs = r1.Accept(vse);
             Assert.AreEqual("4[0,14]", vs.ToString());
@@ -82,7 +91,7 @@ namespace Reko.UnitTests.Scanning
                 program,
                 new Dictionary<Expression, ValueSet>(new ExpressionValueComparer())
                 {
-                    { r1, VS(4, 0, 20) }
+                    { r1, IVS(4, 0, 20) }
                 });
             var vs = m.IAdd(r1, 9).Accept(vse);
             Assert.AreEqual("4[9,1D]", vs.ToString());
@@ -101,7 +110,7 @@ namespace Reko.UnitTests.Scanning
                 program,
                 new Dictionary<Expression, ValueSet>(new ExpressionValueComparer())
                 {
-                    { r1, VS(4, 0x2000, 0x2008) }
+                    { r1, IVS(4, 0x2000, 0x2008) }
                 });
             var vs = m.LoadDw(r1).Accept(vse);
             Assert.AreEqual("[0x00003000,0x00003028,0x00003008]", vs.ToString());
@@ -115,7 +124,7 @@ namespace Reko.UnitTests.Scanning
                 program,
                 new Dictionary<Expression, ValueSet>(new ExpressionValueComparer())
                 {
-                    { r1, VS(4, -4000, 4000) }
+                    { r1, IVS(4, -4000, 4000) }
                 });
             var vs = m.And(r1, 0x1F).Accept(vse);
             Assert.AreEqual("1[0,1F]", vs.ToString());
@@ -129,7 +138,7 @@ namespace Reko.UnitTests.Scanning
                 program,
                 new Dictionary<Expression, ValueSet>(new ExpressionValueComparer())
                 {
-                    { r1, VS(4, -0x40, 0x40) }
+                    { r1, IVS(4, -0x40, 0x40) }
                 });
             var vs = m.Shl(r1, 2).Accept(vse);
             Assert.AreEqual("10[-100,100]", vs.ToString());
@@ -143,7 +152,7 @@ namespace Reko.UnitTests.Scanning
                 program,
                 new Dictionary<Expression, ValueSet>(new ExpressionValueComparer())
                 {
-                    { r1, VS(0, -0x43F, -0x43F) }
+                    { r1, IVS(0, -0x43F, -0x43F) }
                 });
             var vs = m.Cast(PrimitiveType.Byte, r1).Accept(vse);
             Assert.AreEqual("0[-3F,-3F]", vs.ToString());
@@ -157,10 +166,26 @@ namespace Reko.UnitTests.Scanning
                 program,
                 new Dictionary<Expression, ValueSet>(new ExpressionValueComparer())
                 {
-                    { r1, VS(4, -0x400, 0x400) }
+                    { r1, IVS(4, -0x400, 0x400) }
                 });
             var vs = m.Cast(PrimitiveType.Byte, r1).Accept(vse);
             Assert.AreEqual("1[0,FF]", vs.ToString());
+        }
+
+        [Test]
+        public void Vse_Cast_SignExtend()
+        {
+            var r1 = m.Reg32("r1", 1);
+            var vse = new ValueSetEvaluator(
+                program,
+                new Dictionary<Expression, ValueSet>(new ExpressionValueComparer())
+                {
+                    { r1, CVS(0x1FF, 0x00, 0x7F) }
+                });
+            var vs = m.Cast(
+                PrimitiveType.Int32,
+                m.Cast(PrimitiveType.Byte, r1)).Accept(vse);
+            Assert.AreEqual("[-1,0,127]", vs.ToString());
         }
     }
 }
