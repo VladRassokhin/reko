@@ -58,7 +58,7 @@ namespace Reko.UnitTests.Scanning
         public Expression JumpTableFormat { get; private set; }  // an expression that computes the destination addresses.
 
         public Expression JumpTableIndex { get; private set; }    // an expression that tests the index 
-        public Expression JumpTableIndexInterval { get; private set; }    // an expression that tests the index 
+        public StridedInterval JumpTableIndexInterval { get; private set; }    // an expression that tests the index 
 
         private static List<RtlInstruction> FlattenInstructions(RtlBlock b)
         {
@@ -104,35 +104,18 @@ namespace Reko.UnitTests.Scanning
             return true;
         }
 
-        private Expression MakeTestExpression_ISub(Expression left, Expression right)
+        private StridedInterval MakeInterval_ISub(Expression left, Constant right)
         {
-            var op = OpFromCc(this.ccNext);
-            Expression bin = new BinaryExpression(op, PrimitiveType.Bool, left, right);
-            if (this.invertCondition)
-                bin = bin.Invert();
-            return bin;
-        }
-
-        private Operator OpFromCc(ConditionCode cc)
-        {
-            Operator cmpOp;
+            if (right == null)
+                return StridedInterval.Empty;
+            var cc = ccNext;
+            if (invertCondition)
+                cc = cc.Invert();
             switch (cc)
             {
-            case ConditionCode.UGT: cmpOp = Operator.Ugt; break;
-            case ConditionCode.UGE: cmpOp = Operator.Uge; break;
-            case ConditionCode.ULE: cmpOp = Operator.Ule; break;
-            case ConditionCode.ULT: cmpOp = Operator.Ult; break;
-            case ConditionCode.GT: cmpOp = Operator.Gt; break;
-            case ConditionCode.GE: cmpOp = Operator.Ge; break;
-            case ConditionCode.LE: cmpOp = Operator.Le; break;
-            case ConditionCode.LT: cmpOp = Operator.Lt; break;
-            case ConditionCode.NE: cmpOp = Operator.Ne; break;
-            case ConditionCode.EQ: cmpOp = Operator.Eq; break;
-            case ConditionCode.SG: cmpOp = Operator.Lt; break;
-            case ConditionCode.NS: cmpOp = Operator.Ge; break;
-            default: throw new NotImplementedException();
+            case ConditionCode.ULE: return StridedInterval.Create(1, 0, right.ToInt64());
+            default: throw new NotImplementedException($"Unimplemented condition code {cc}.");
             }
-            return cmpOp;
         }
 
         public SlicerResult VisitAddress(Address addr, BitRange ctx)
@@ -231,7 +214,7 @@ namespace Reko.UnitTests.Scanning
                         {
                             if (cmp.Equals(assignLhs, this.JumpTableIndex))
                             {
-                                this.JumpTableIndexInterval = MakeTestExpression_ISub(bin.Left, bin.Right);
+                                this.JumpTableIndexInterval = MakeInterval_ISub(bin.Left, bin.Right as Constant);
                                 return null;
                             }
                         }
