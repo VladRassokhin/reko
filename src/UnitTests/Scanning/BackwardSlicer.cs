@@ -27,6 +27,7 @@ using Reko.Core.Types;
 using Reko.Scanning;
 using System.Linq;
 using System.Diagnostics;
+using Reko.Core.Operators;
 
 namespace Reko.UnitTests.Scanning
 {
@@ -36,6 +37,13 @@ namespace Reko.UnitTests.Scanning
         private int iInstr;
         private IBackWalkHost<RtlBlock, RtlInstruction> host;
         private List<RtlInstruction> instrs;
+        private Address addrSucc;       // the block from which we traced.
+        private Expression targetExpr;  // an expression that computes the destination addresses.
+        private Expression testExpr;    // an expression that tests the index 
+        private ConditionCode ccNext;   // The condition code that is used in a branch.
+        private ExpressionValueComparer cmp;
+        private Expression assignLhs;   // current LHS
+        private bool invertCondition;
 
         public BackwardSlicer(RtlBlock block, IBackWalkHost<RtlBlock, RtlInstruction> host)
         {
@@ -43,29 +51,31 @@ namespace Reko.UnitTests.Scanning
             this.host = host;
             var b = block;
             this.instrs = FlattenInstructions(b);
-            this.Roots = new Dictionary<Storage, BitRange>();
+            this.Roots = new Dictionary<Expression, BitRange>();
+            this.cmp = new ExpressionValueComparer();
         }
 
-        public Dictionary<Storage, BitRange> Roots { get; private set; }
-        public Dictionary<Storage, BitRange> Live { get; private set; }
+        public Dictionary<Expression, BitRange> Roots { get; private set; }
+        public Dictionary<Expression, BitRange> Live { get; private set; }
 
         private static List<RtlInstruction> FlattenInstructions(RtlBlock b)
         {
             return b.Instructions.SelectMany(rtlc => rtlc.Instructions).ToList();
         }
+
         public bool Start()
         {
             this.Roots.Clear();
 
             this.iInstr = instrs.Count - 1;
             var sr = instrs[iInstr].Accept(this);
-            if (sr.LiveStorages.Count == 0)
+            if (sr.LiveExprs.Count == 0)
             {
                 Debug.Print("No indirect registers?");
                 return false;
             }
-            this.Roots = new Dictionary<Storage, BitRange>(sr.LiveStorages);
-            this.Live = sr.LiveStorages;
+            this.Roots = new Dictionary<Expression, BitRange>(sr.LiveExprs);
+            this.Live = sr.LiveExprs;
             return true;
         }
 
@@ -77,18 +87,52 @@ namespace Reko.UnitTests.Scanning
                 var pred = host.GetSinglePredecessor(block);    //$TODO: do all predecessors, add to queue.
                 if (pred == null)
                     return false;
+                this.addrSucc = block.Address;
                 block = pred;
                 instrs = FlattenInstructions(block);
                 iInstr = instrs.Count - 1;
             }
             var sr = instrs[iInstr].Accept(this);
-            foreach (var de in sr.LiveStorages)
+            if (sr == null)
+                return false;
+            foreach (var de in sr.LiveExprs)
             {
                 this.Live[de.Key] = de.Value;
             }
             return true;
         }
-     
+
+        private Expression MakeTestExpression_ISub(Expression left, Expression right)
+        {
+            var op = OpFromCc(this.ccNext);
+            Expression bin = new BinaryExpression(op, PrimitiveType.Bool, left, right);
+            if (this.invertCondition)
+                bin = bin.Invert();
+            return bin;
+        }
+
+        private Operator OpFromCc(ConditionCode cc)
+        {
+            Operator cmpOp;
+            switch (cc)
+            {
+            case ConditionCode.UGT: cmpOp = Operator.Ugt; break;
+            case ConditionCode.UGE: cmpOp = Operator.Uge; break;
+            case ConditionCode.ULE: cmpOp = Operator.Ule; break;
+            case ConditionCode.ULT: cmpOp = Operator.Ult; break;
+            case ConditionCode.GT: cmpOp = Operator.Gt; break;
+            case ConditionCode.GE: cmpOp = Operator.Ge; break;
+            case ConditionCode.LE: cmpOp = Operator.Le; break;
+            case ConditionCode.LT: cmpOp = Operator.Lt; break;
+            case ConditionCode.NE: cmpOp = Operator.Ne; break;
+            case ConditionCode.EQ: cmpOp = Operator.Eq; break;
+            case ConditionCode.SG: cmpOp = Operator.Lt; break;
+            case ConditionCode.NS: cmpOp = Operator.Ge; break;
+            default: throw new NotImplementedException();
+            }
+            return cmpOp;
+        }
+
         public SlicerResult VisitAddress(Address addr, BitRange ctx)
         {
             return new SlicerResult
@@ -112,14 +156,20 @@ namespace Reko.UnitTests.Scanning
             var id = ass.Dst as Identifier;
             if (id != null)
             {
+                bool wasLive = Live.Remove(id); 
+                if (!wasLive)
+                {
+                    return new SlicerResult();   
+                }
                 //$TODO: create edges in graph. storages....
-                Live.Remove(id.Storage);
             }
+            this.assignLhs = ass.Dst;
             var se = ass.Src.Accept(
                 this,
                 new BitRange(
                     (short)id.Storage.BitAddress,
                     (short)(id.Storage.BitAddress + id.Storage.BitSize)));
+            this.assignLhs = null;
             return se;
         }
 
@@ -130,7 +180,7 @@ namespace Reko.UnitTests.Scanning
             var se = new SlicerResult
             {
                 Addresses = seLeft.Addresses.Concat(seRight.Addresses).ToHashSet(),
-                LiveStorages = seLeft.LiveStorages.Concat(seRight.LiveStorages)
+                LiveExprs = seLeft.LiveExprs.Concat(seRight.LiveExprs)
                     .ToDictionary(k => k.Key, v => v.Value)
             };
             return se;
@@ -138,7 +188,15 @@ namespace Reko.UnitTests.Scanning
 
         public SlicerResult VisitBranch(RtlBranch branch)
         {
-            throw new NotImplementedException();
+            var se = branch.Condition.Accept(this, new BitRange(0, 0));
+            var addrTarget = branch.Target as Address;
+            if (addrTarget == null)
+                throw new NotImplementedException();    //#REVIEW: do we ever see this?
+            if (addrSucc != addrTarget)
+            {
+                this.invertCondition = true;
+            }
+            return se;
         }
 
         public SlicerResult VisitCall(RtlCall call)
@@ -158,8 +216,31 @@ namespace Reko.UnitTests.Scanning
 
         public SlicerResult VisitConditionOf(ConditionOf cof, BitRange ctx)
         {
-            throw new NotImplementedException();
+            var bin = cof.Expression as BinaryExpression;
+            if (bin != null)
+            {
+                if (bin.Operator == Operator.ISub)
+                {
+                    foreach (var live in Live.Keys)
+                    {
+                        if (cmp.Equals(live, bin.Left))
+                        {
+                            if (cmp.Equals(assignLhs, this.testExpr))
+                            {
+                                this.testExpr = MakeTestExpression_ISub(bin.Left, bin.Right);
+                                return null;
+                            }
+                        }
+                    }
+                }
+                else
+                    throw new NotImplementedException();
+            }
+            var se = cof.Expression.Accept(this, RangeOf(cof.Expression.DataType));
+            this.testExpr = cof.Expression;
+            return se;
         }
+      
 
         public SlicerResult VisitConstant(Constant c, BitRange ctx)
         {
@@ -172,7 +253,7 @@ namespace Reko.UnitTests.Scanning
             return new SlicerResult
             {
                 Addresses = addresses,
-                LiveStorages = new Dictionary<Storage, BitRange>(),
+                LiveExprs = new Dictionary<Expression, BitRange>(),
             };
         }
 
@@ -197,6 +278,10 @@ namespace Reko.UnitTests.Scanning
         public SlicerResult VisitGoto(RtlGoto go)
         {
             var sr = go.Target.Accept(this, RangeOf(go.Target.DataType));
+            if (targetExpr == null)
+            {
+                targetExpr = go.Target;
+            }
             return sr;
         }
 
@@ -209,7 +294,7 @@ namespace Reko.UnitTests.Scanning
         {
             var sr = new SlicerResult
             {
-                LiveStorages = { { id.Storage, ctx } }
+                LiveExprs = { { id, ctx } }
             };
             return sr;
         }
@@ -291,7 +376,10 @@ namespace Reko.UnitTests.Scanning
 
         public SlicerResult VisitTestCondition(TestCondition tc, BitRange ctx)
         {
-            throw new NotImplementedException();
+            var se = tc.Expression.Accept(this, RangeOf(tc.Expression.DataType));
+            this.ccNext = tc.ConditionCode;
+            this.testExpr = tc.Expression;
+            return se;
         }
 
         public SlicerResult VisitUnaryExpression(UnaryExpression unary, BitRange ctx)
@@ -346,7 +434,7 @@ namespace Reko.UnitTests.Scanning
     public class SlicerResult
     {
         // Live storages are involved in the computation of the jump destinations.
-        public Dictionary<Storage, BitRange> LiveStorages = new Dictionary<Storage, BitRange>();
+        public Dictionary<Expression, BitRange> LiveExprs = new Dictionary<Expression, BitRange>();
 
         public HashSet<Address> Addresses = new HashSet<Address>();
     }
