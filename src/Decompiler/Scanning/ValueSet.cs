@@ -20,6 +20,7 @@
 
 using Reko.Core;
 using Reko.Core.Expressions;
+using Reko.Core.Lib;
 using Reko.Core.Types;
 using System;
 using System.Collections.Generic;
@@ -43,16 +44,16 @@ namespace Reko.Scanning
         public abstract ValueSet Add(Constant right);
         public abstract ValueSet And(Constant cRight);
         public abstract ValueSet Shl(Constant cRight);
+
+        public abstract ValueSet Truncate(DataType dt);
     }
 
     public class IntervalValueSet : ValueSet
     {
-        public DataType DataType;
         public StridedInterval SI;
 
         public IntervalValueSet(DataType dt, StridedInterval si) : base(dt)
         {
-            this.DataType = dt;
             this.SI = si;
         }
 
@@ -113,6 +114,26 @@ namespace Reko.Scanning
                     SI.High << v));
         }
 
+        public override ValueSet Truncate(DataType dt)
+        {
+            if (SI.Stride < 0)
+                return this;
+
+            var mask = (1 << dt.BitSize) - 1;
+            StridedInterval siNew;
+            if (SI.Low == SI.High)
+            {
+                siNew = StridedInterval.Constant(
+                    Constant.Create(dt, SI.Low & mask));
+            }
+            else
+            {
+                siNew = StridedInterval.Create(
+                    1, 0, mask);
+            }
+            return new IntervalValueSet(dt, siNew);
+        }
+
         public override string ToString()
         {
             return SI.ToString();
@@ -149,6 +170,11 @@ namespace Reko.Scanning
         }
 
         public override ValueSet Shl(Constant cRight)
+        {
+            throw new NotImplementedException();
+        }
+
+        public override ValueSet Truncate(DataType dt)
         {
             throw new NotImplementedException();
         }
