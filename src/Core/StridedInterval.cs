@@ -39,6 +39,7 @@ namespace Reko.Core
         public readonly int Stride;
 
         public readonly static StridedInterval Empty = new StridedInterval(-1, 0, 0);
+        public readonly static StridedInterval All = new StridedInterval(1, long.MinValue, long.MaxValue);
 
         public static StridedInterval Constant(Constant c)
         {

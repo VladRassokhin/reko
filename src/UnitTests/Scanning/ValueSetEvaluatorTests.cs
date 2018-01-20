@@ -76,5 +76,33 @@ namespace Reko.UnitTests.Scanning
             var vs = m.IAdd(r1, 9).Accept(vse);
             Assert.AreEqual("4[9,1D]", vs.ToString());
         }
+
+        [Test]
+        public void Vse_And()
+        {
+            var r1 = m.Reg32("r1", 1);
+            var vse = new ValueSetEvaluator(
+                program,
+                new Dictionary<Expression, ValueSet>(new ExpressionValueComparer())
+                {
+                    { r1, VS(4, -4000, 4000) }
+                });
+            var vs = m.And(r1, 0x1F).Accept(vse);
+            Assert.AreEqual("1[0,1F]", vs.ToString());
+        }
+
+        [Test]
+        public void Vse_Shl()
+        {
+            var r1 = m.Reg32("r1", 1);
+            var vse = new ValueSetEvaluator(
+                program,
+                new Dictionary<Expression, ValueSet>(new ExpressionValueComparer())
+                {
+                    { r1, VS(4, -0x40, 0x40) }
+                });
+            var vs = m.Shl(r1, 2).Accept(vse);
+            Assert.AreEqual("10[-100,100]", vs.ToString());
+        }
     }
 }

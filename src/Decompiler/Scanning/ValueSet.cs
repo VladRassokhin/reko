@@ -32,6 +32,8 @@ namespace Reko.Scanning
     {
         public abstract ValueSet Add(ValueSet right);
         public abstract ValueSet Add(Constant right);
+        public abstract ValueSet And(Constant cRight);
+        public abstract ValueSet Shl(Constant cRight);
     }
 
     public class IntervalValueSet : ValueSet
@@ -58,6 +60,23 @@ namespace Reko.Scanning
                     SI.High + v));
         }
 
+        public override ValueSet And(Constant right)
+        {
+            long v = right.ToInt64();
+            return new IntervalValueSet(
+                StridedInterval.Create(1, 0, v));
+        }
+
+        public override ValueSet Shl(Constant cRight)
+        {
+            int v = (int) cRight.ToInt64();
+            return new IntervalValueSet(
+                StridedInterval.Create(
+                    SI.Stride << v,
+                    SI.Low << v,
+                    SI.High << v));
+        }
+
         public override string ToString()
         {
             return SI.ToString();
@@ -72,6 +91,16 @@ namespace Reko.Scanning
         }
 
         public override ValueSet Add(ValueSet right)
+        {
+            throw new NotImplementedException();
+        }
+
+        public override ValueSet And(Constant right)
+        {
+            throw new NotImplementedException();
+        }
+
+        public override ValueSet Shl(Constant cRight)
         {
             throw new NotImplementedException();
         }
