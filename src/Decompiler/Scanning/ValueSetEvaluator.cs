@@ -26,6 +26,7 @@ using System.Text;
 using System.Threading.Tasks;
 using Reko.Core;
 using Reko.Core.Operators;
+using Reko.Core.Types;
 
 namespace Reko.Scanning
 {
@@ -62,6 +63,7 @@ namespace Reko.Scanning
             if (cLeft != null && cRight != null)
             {
                 return new IntervalValueSet(
+                    cLeft.DataType,
                     StridedInterval.Constant(
                         binExp.Operator.ApplyConstants(cLeft, cRight)));
             }
@@ -136,7 +138,7 @@ namespace Reko.Scanning
             ValueSet vs;
             if (context.TryGetValue(id, out vs))
                 return vs;
-            return new IntervalValueSet(StridedInterval.Empty);
+            return new IntervalValueSet(id.DataType, StridedInterval.Empty);
         }
 
         public ValueSet VisitMemberPointerSelector(MemberPointerSelector mps)
@@ -146,7 +148,21 @@ namespace Reko.Scanning
 
         public ValueSet VisitMemoryAccess(MemoryAccess access)
         {
-            throw new NotImplementedException();
+            var vs = access.EffectiveAddress.Accept(this);
+            return new ConcreteValueSet(
+                vs.Values
+                    .Select(v => ReadValue(access.DataType, v))
+                    .ToArray());
+        }
+
+        private Constant ReadValue(DataType dt, Constant cAddr)
+        {
+            var addr = program.SegmentMap.MapLinearAddressToAddress(cAddr.ToUInt64());
+            ImageSegment seg;
+            if (!program.SegmentMap.TryFindSegment(addr, out seg))
+                return Constant.Invalid;
+            var rdr = program.Architecture.CreateImageReader(seg.MemoryArea, addr);
+            return rdr.Read((PrimitiveType)dt);
         }
 
         public ValueSet VisitMkSequence(MkSequence seq)

@@ -21,6 +21,7 @@
 using NUnit.Framework;
 using Reko.Core;
 using Reko.Core.Expressions;
+using Reko.Core.Types;
 using Reko.Scanning;
 using Reko.UnitTests.Mocks;
 using System;
@@ -40,13 +41,23 @@ namespace Reko.UnitTests.Scanning
         [SetUp]
         public void Setup()
         {
-            program = new Program();
+            var addr = Address.Ptr32(0x2000);
             m = new ProcedureBuilder();
+            program = new Program
+            {
+                Architecture = m.Architecture,
+                SegmentMap = new SegmentMap(
+                    Address.Ptr32(0x2000),
+                    new ImageSegment(
+                        "blob",
+                        new MemoryArea(addr, new byte[0x400]),
+                        AccessMode.ReadWriteExecute))
+            };
         }
 
         private ValueSet VS(int stride, long low, long high)
         {
-            return new IntervalValueSet(StridedInterval.Create(stride, low, high));
+            return new IntervalValueSet(PrimitiveType.Word32, StridedInterval.Create(stride, low, high));
         }
 
         [Test]
@@ -75,6 +86,25 @@ namespace Reko.UnitTests.Scanning
                 });
             var vs = m.IAdd(r1, 9).Accept(vse);
             Assert.AreEqual("4[9,1D]", vs.ToString());
+        }
+
+        [Test]
+        public void Vse_Load()
+        {
+            var w = program.CreateImageWriter(Address.Ptr32(0x2000));
+            w.WriteUInt32(0x3000);
+            w.WriteUInt32(0x3028);
+            w.WriteUInt32(0x3008);
+            var r1 = m.Reg32("r1", 1);
+
+            var vse = new ValueSetEvaluator(
+                program,
+                new Dictionary<Expression, ValueSet>(new ExpressionValueComparer())
+                {
+                    { r1, VS(4, 0x2000, 0x2008) }
+                });
+            var vs = m.LoadDw(r1).Accept(vse);
+            Assert.AreEqual("[0x00003000,0x00003028,0x00003008]", vs.ToString());
         }
 
         [Test]
