@@ -38,7 +38,6 @@ namespace Reko.UnitTests.Scanning
         private IBackWalkHost<RtlBlock, RtlInstruction> host;
         private List<RtlInstruction> instrs;
         private Address addrSucc;       // the block from which we traced.
-        private Expression targetExpr;  // an expression that computes the destination addresses.
         private Expression testExpr;    // an expression that tests the index 
         private ConditionCode ccNext;   // The condition code that is used in a branch.
         private ExpressionValueComparer cmp;
@@ -57,6 +56,7 @@ namespace Reko.UnitTests.Scanning
 
         public Dictionary<Expression, BitRange> Roots { get; private set; }
         public Dictionary<Expression, BitRange> Live { get; private set; }
+        public Expression JumpTableFormat { get; private set; }  // an expression that computes the destination addresses.
 
         private static List<RtlInstruction> FlattenInstructions(RtlBlock b)
         {
@@ -268,7 +268,6 @@ namespace Reko.UnitTests.Scanning
             throw new NotImplementedException();
         }
 
- 
 
         public SlicerResult VisitFieldAccess(FieldAccess acc, BitRange ctx)
         {
@@ -278,9 +277,9 @@ namespace Reko.UnitTests.Scanning
         public SlicerResult VisitGoto(RtlGoto go)
         {
             var sr = go.Target.Accept(this, RangeOf(go.Target.DataType));
-            if (targetExpr == null)
+            if (JumpTableFormat == null)
             {
-                targetExpr = go.Target;
+                JumpTableFormat = go.Target;
             }
             return sr;
         }
