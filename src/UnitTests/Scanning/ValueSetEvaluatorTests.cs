@@ -134,5 +134,33 @@ namespace Reko.UnitTests.Scanning
             var vs = m.Shl(r1, 2).Accept(vse);
             Assert.AreEqual("10[-100,100]", vs.ToString());
         }
+
+        [Test]
+        public void Vse_Cast_Truncate_SingleValue()
+        {
+            var r1 = m.Reg32("r1", 1);
+            var vse = new ValueSetEvaluator(
+                program,
+                new Dictionary<Expression, ValueSet>(new ExpressionValueComparer())
+                {
+                    { r1, VS(0, -0x43F, -0x43F) }
+                });
+            var vs = m.Cast(PrimitiveType.Byte, r1).Accept(vse);
+            Assert.AreEqual("0[-3F,-3F]", vs.ToString());
+        }
+
+        [Test]
+        public void Vse_Cast_Truncate_Interval()
+        {
+            var r1 = m.Reg32("r1", 1);
+            var vse = new ValueSetEvaluator(
+                program,
+                new Dictionary<Expression, ValueSet>(new ExpressionValueComparer())
+                {
+                    { r1, VS(4, -0x400, 0x400) }
+                });
+            var vs = m.Cast(PrimitiveType.Byte, r1).Accept(vse);
+            Assert.AreEqual("1[0,FF]", vs.ToString());
+        }
     }
 }

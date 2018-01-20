@@ -100,6 +100,11 @@ namespace Reko.Scanning
 
         public ValueSet VisitCast(Cast cast)
         {
+            var vs = cast.Expression.Accept(this);
+            if (cast.DataType.BitSize < cast.Expression.DataType.BitSize)
+            {
+                return vs.Truncate(cast.DataType);
+            }
             throw new NotImplementedException();
         }
 
