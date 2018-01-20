@@ -94,7 +94,10 @@ namespace Reko.Core.Expressions
 
         public Expression VisitConstant(Constant c)
         {
-            throw new NotImplementedException();
+            if (cmp.Equals(c, original))
+                return replacement;
+            else
+                return c;
         }
 
         public Expression VisitDepositBits(DepositBits d)
@@ -114,7 +117,10 @@ namespace Reko.Core.Expressions
 
         public Expression VisitIdentifier(Identifier id)
         {
-            throw new NotImplementedException();
+            if (cmp.Equals(id, original))
+                return replacement;
+            else
+                return id;
         }
 
         public Expression VisitMemberPointerSelector(MemberPointerSelector mps)

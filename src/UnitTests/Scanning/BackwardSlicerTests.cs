@@ -242,8 +242,8 @@ namespace Reko.UnitTests.Scanning
             Assert.IsFalse(bwslc.Step());   // test
             Assert.AreEqual("r2",
                 string.Join(",", bwslc.Live.Select(l => l.Key.ToString()).OrderBy(n => n)));
-            Assert.AreEqual("@@@", bwslc.JumpTableFormat);
-
+            Assert.AreEqual("(r2 << 0x02) + 0x00123400", bwslc.JumpTableFormat.ToString());
+            Assert.AreEqual("r2 <=u 0x00000004", bwslc.JumpTableIndexInterval.ToString());
         }
     }
 }
