@@ -68,12 +68,30 @@ namespace Reko.Scanning
             if (cLeft == null)
             {
                 var left = binExp.Left.Accept(this);
-                return left.Add(cRight);
+                if (binExp.Operator == Operator.IAdd)
+                {
+                    return left.Add(cRight);
+                }
+                else if (binExp.Operator == Operator.And)
+                {
+                    return left.And(cRight);
+                }
+                else if (binExp.Operator == Operator.Shl)
+                {
+                    return left.Shl(cRight);
+                }
             }
             if (cRight == null)
             {
                 var right = binExp.Right.Accept(this);
-                return right.Add(cLeft);
+                if (binExp.Operator == Operator.IAdd)
+                {
+                    return right.Add(cLeft);
+                }
+                else if (binExp.Operator == Operator.And)
+                {
+                    return right.And(cLeft);
+                }
             }
             throw new NotImplementedException();
         }
