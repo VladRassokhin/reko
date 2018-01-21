@@ -34,11 +34,13 @@ namespace Reko.Scanning
     {
         private Program program;
         private Dictionary<Expression, ValueSet> context;
+        private ExpressionValueComparer cmp;
 
         public ValueSetEvaluator(Program program, Dictionary<Expression, ValueSet> context)
         {
             this.program = program;
             this.context = context;
+            this.cmp = new ExpressionValueComparer();
         }
 
         public ValueSet VisitAddress(Address addr)
@@ -67,7 +69,7 @@ namespace Reko.Scanning
                     StridedInterval.Constant(
                         binExp.Operator.ApplyConstants(cLeft, cRight)));
             }
-            if (cLeft == null)
+            if (cLeft == null && cRight != null)
             {
                 var left = binExp.Left.Accept(this);
                 if (binExp.Operator == Operator.IAdd)
@@ -82,8 +84,12 @@ namespace Reko.Scanning
                 {
                     return left.Shl(cRight);
                 }
+                else if (binExp.Operator == Operator.IMul)
+                {
+                    return left.IMul(cRight);
+                }
             }
-            if (cRight == null)
+            if (cRight == null && cLeft != null)
             {
                 var right = binExp.Right.Accept(this);
                 if (binExp.Operator == Operator.IAdd)
@@ -93,6 +99,14 @@ namespace Reko.Scanning
                 else if (binExp.Operator == Operator.And)
                 {
                     return right.And(cLeft);
+                }
+            }
+            if (binExp.Operator == Operator.IAdd)
+            {
+                if (cmp.Equals(binExp.Left, binExp.Right))
+                {
+                    var left = binExp.Left.Accept(this);
+                    return left.Shl(Constant.Int32(1));
                 }
             }
             throw new NotImplementedException();
