@@ -187,5 +187,33 @@ namespace Reko.UnitTests.Scanning
                 m.Cast(PrimitiveType.Byte, r1)).Accept(vse);
             Assert.AreEqual("[-1,0,127]", vs.ToString());
         }
+
+        [Test]
+        public void Vse_Add_self()
+        {
+            var r1 = m.Reg32("r1", 1);
+            var vse = new ValueSetEvaluator(
+                program,
+                new Dictionary<Expression, ValueSet>(new ExpressionValueComparer())
+                {
+                    { r1, IVS(4, 10, 20) }
+                });
+            var vs = m.IAdd(r1, r1).Accept(vse);
+            Assert.AreEqual("8[14,28]", vs.ToString());
+        }
+
+        [Test]
+        public void Vse_Add_Mul()
+        {
+            var r1 = m.Reg32("r1", 1);
+            var vse = new ValueSetEvaluator(
+                program,
+                new Dictionary<Expression, ValueSet>(new ExpressionValueComparer())
+                {
+                    { r1, CVS(3, 9, 10) }
+                });
+            var vs = m.IMul(r1, 4).Accept(vse);
+            Assert.AreEqual("[0x0000000C,0x00000024,0x00000028]", vs.ToString());
+        }
     }
 }

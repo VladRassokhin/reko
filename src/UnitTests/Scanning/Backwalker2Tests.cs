@@ -99,7 +99,7 @@ namespace Reko.UnitTests.Scanning
         // The input upper bound to this jump table must be inferred.
         // In addition, the input is right shifted to get the index into the table
 
-        // movzx eax,[edi]              : 0 ≤ eax ≤ 255                                     : rax [0, 255]
+        // movzx eax,byte ptr [edi]     : 0 ≤ eax ≤ 255                                     : rax [0, 255]
         // shr al,4                     : rax = rax >> 4                                    : al ~ rax
         //                              : JTT = [0x495e30 + (rax >> 4)×8]
         // jmpq [0x495e30 + rax * 8]    : JTT = [0x495e30 + rax×8]                          : rax
@@ -114,7 +114,7 @@ namespace Reko.UnitTests.Scanning
         // jmp [0x00234500 + edx * 4]   : JTT = [0x0023450 + edx * 4]               : edx
 
         // M68k relative jump code.
-        //  correpsonnds to
+        //  corresponds to
         // cmpi.l #$00000028,d1         : 0 <= d1 <= 0x28
         // bgt $00106C66
         // add.l d1,d1                  : d1 = d1 * 2
@@ -142,5 +142,13 @@ namespace Reko.UnitTests.Scanning
         //007861D1 jc 007861FC
         //007861D3 rep movsd 
         //007861D5 jmp dword ptr[007862E8 + edx * 4]
+
+
+        // cmp [ebp-66],1D
+        // mov edx,[ebp-66]
+        // movzx eax,byte ptr [edx + 0x10000]
+        // jmp [eax + 0x12000]
+
+
     }
 }

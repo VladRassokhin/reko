@@ -21,6 +21,7 @@
 using Reko.Core;
 using Reko.Core.Expressions;
 using Reko.Core.Lib;
+using Reko.Core.Operators;
 using Reko.Core.Types;
 using System;
 using System.Collections.Generic;
@@ -43,10 +44,12 @@ namespace Reko.Scanning
         public abstract ValueSet Add(ValueSet right);
         public abstract ValueSet Add(Constant right);
         public abstract ValueSet And(Constant cRight);
+        public abstract ValueSet IMul(Constant cRight);
         public abstract ValueSet Shl(Constant cRight);
         public abstract ValueSet SignExtend(DataType dataType);
 
         public abstract ValueSet Truncate(DataType dt);
+
     }
 
     public class IntervalValueSet : ValueSet
@@ -102,6 +105,17 @@ namespace Reko.Scanning
             return new IntervalValueSet(
                 this.DataType,
                 StridedInterval.Create(1, 0, v));
+        }
+
+        public override ValueSet IMul(Constant cRight)
+        {
+            long v = cRight.ToInt64();
+            return new IntervalValueSet(
+                this.DataType,
+                StridedInterval.Create(
+                    SI.Stride * (int)v,
+                    SI.Low * v,
+                    SI.High * v));
         }
 
         public override ValueSet Shl(Constant cRight)
@@ -180,6 +194,11 @@ namespace Reko.Scanning
         public override ValueSet And(Constant right)
         {
             throw new NotImplementedException();
+        }
+
+        public override ValueSet IMul(Constant cRight)
+        {
+            return Map(DataType, v => Operator.IMul.ApplyConstants(v, cRight));
         }
 
         public override ValueSet Shl(Constant cRight)
