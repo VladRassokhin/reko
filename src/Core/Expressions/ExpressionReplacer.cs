@@ -130,7 +130,10 @@ namespace Reko.Core.Expressions
 
         public Expression VisitMemoryAccess(MemoryAccess access)
         {
-            throw new NotImplementedException();
+            if (cmp.Equals(access, original))
+                return replacement;
+            var ea = access.EffectiveAddress.Accept(this);
+            return new MemoryAccess(ea, access.DataType);
         }
 
         public Expression VisitMkSequence(MkSequence seq)

@@ -245,5 +245,28 @@ namespace Reko.UnitTests.Scanning
             Assert.AreEqual("(r2 << 0x02) + 0x00123400", bwslc.JumpTableFormat.ToString());
             Assert.AreEqual("1[0,4]", bwslc.JumpTableIndexInterval.ToString());
         }
+
+        [Test]
+        [Category(Categories.UnitTests)]
+        public void Bwslc_BoundIndexWithAnd()
+        {
+            var r1 = Reg(1);
+            var r2 = Reg(2);
+            var cz = Cc("CZ");
+
+            var b = Given_Block(0x100);
+            Given_Instrs(b, m => { m.Assign(r1, m.And(r1, 7)); m.Assign(cz, m.Cond(r1)); });
+            Given_Instrs(b, m => { m.Goto(m.LoadDw(m.IAdd(m.Word32(0x00123400), m.IMul(r1, 4)))); });
+
+            graph.Nodes.Add(b);
+
+            var bwslc = new BackwardSlicer(b, host);
+            Assert.IsTrue(bwslc.Start());   // indirect jump
+            Assert.IsTrue(bwslc.Step());    // assign flags
+            Assert.IsFalse(bwslc.Step());    // and
+            Assert.AreEqual("0x00123400 + (r1 & 7) * 4", bwslc.JumpTableFormat.ToString());
+            Assert.AreEqual("1[0,7]", bwslc.JumpTableIndexInterval.ToString());
+        }
+
     }
 }

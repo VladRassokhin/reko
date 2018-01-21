@@ -139,13 +139,14 @@ namespace Reko.UnitTests.Scanning
         public SlicerResult VisitAssignment(RtlAssignment ass)
         {
             var id = ass.Dst as Identifier;
+            bool wasLive = false;
             if (id != null)
             {
-                bool wasLive = Live.Remove(id); 
+                wasLive = Live.Remove(id);
                 if (!wasLive)
                 {
                     // This assignment doesn't affect the end result.
-                    return new SlicerResult();   
+                    return new SlicerResult();
                 }
                 //$TODO: create edges in graph. storages....
             }
@@ -302,7 +303,8 @@ namespace Reko.UnitTests.Scanning
 
         public SlicerResult VisitMemoryAccess(MemoryAccess access, BitRange ctx)
         {
-            throw new NotImplementedException();
+            var sr = access.EffectiveAddress.Accept(this, ctx);
+            return sr;
         }
 
         public SlicerResult VisitMkSequence(MkSequence seq, BitRange ctx)
