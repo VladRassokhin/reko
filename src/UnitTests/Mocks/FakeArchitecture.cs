@@ -225,11 +225,6 @@ namespace Reko.UnitTests.Mocks
 
         public int InstructionBitSize { get { return 32; } }
 
-		public string RegisterToString(int reg)
-		{
-			throw new NotImplementedException("// TODO:  Add ArchitectureMock.RegisterToString implementation");
-		}
-
 		public IEnumerable<MachineInstruction> CreateDisassembler(EndianImageReader rdr)
 		{
             return new FakeDisassembler(rdr.Address, Test_DisassemblyStream.GetEnumerator());

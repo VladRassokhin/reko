@@ -85,7 +85,7 @@ namespace Reko.UnitTests.Scanning
             b(trace);
             block.Instructions.Add(
                 new RtlInstructionCluster(
-                    block.Address  + block.Instructions.Count * 4,
+                    block.Address + block.Instructions.Count * 4,
                     4,
                     instrs.ToArray()));
         }
@@ -264,9 +264,8 @@ namespace Reko.UnitTests.Scanning
             Assert.IsTrue(bwslc.Start());   // indirect jump
             Assert.IsTrue(bwslc.Step());    // assign flags
             Assert.IsFalse(bwslc.Step());    // and
-            Assert.AreEqual("0x00123400 + (r1 & 7) * 4", bwslc.JumpTableFormat.ToString());
+            Assert.AreEqual("Mem0[0x00123400 + (r1 & 0x00000007) * 0x00000004:word32]", bwslc.JumpTableFormat.ToString());
             Assert.AreEqual("1[0,7]", bwslc.JumpTableIndexInterval.ToString());
         }
-
     }
 }

@@ -28,6 +28,7 @@ using Reko.Scanning;
 using System.Linq;
 using System.Diagnostics;
 using Reko.Core.Operators;
+using Reko.Core.Lib;
 
 namespace Reko.Scanning
 {
@@ -118,6 +119,21 @@ namespace Reko.Scanning
             }
         }
 
+        private StridedInterval MakeInterval_And(Expression left, Constant right)
+        {
+            if (right == null)
+                return StridedInterval.Empty;
+            long n = right.ToInt64();
+            if (Bits.IsEvenPowerOfTwo(n + 1))
+            {
+                return StridedInterval.Create(1, 0, n);
+            }
+            else
+            {
+                return StridedInterval.Empty;
+            }
+        }
+
         public SlicerResult VisitAddress(Address addr, BitRange ctx)
         {
             return new SlicerResult
@@ -165,6 +181,11 @@ namespace Reko.Scanning
         {
             var seLeft = binExp.Left.Accept(this, ctx);
             var seRight = binExp.Right.Accept(this, ctx);
+            if (binExp.Operator == Operator.And)
+            {
+                this.JumpTableIndexInterval = MakeInterval_And(binExp.Left, binExp.Right as Constant);
+                return null;
+            }
             var se = new SlicerResult
             {
                 Addresses = seLeft.Addresses.Concat(seRight.Addresses).ToHashSet(),
