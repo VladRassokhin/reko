@@ -97,7 +97,15 @@ namespace Reko.Scanning
             }
             var sr = instrs[iInstr].Accept(this);
             if (sr == null)
+            {
+                // Instruction had no effect on live registers.
+                return true;
+            }
+            if (sr.LiveExprs.Count == 0)
+            {
+                // No more live expressions.
                 return false;
+            }
             foreach (var de in sr.LiveExprs)
             {
                 this.Live[de.Key] = de.Value;
@@ -105,6 +113,15 @@ namespace Reko.Scanning
             return true;
         }
 
+        private StorageDomain DomainOf(Expression e)
+        {
+            var id = e as Identifier;
+            if (id != null)
+            {
+                return id.Storage.Domain;
+            }
+            throw new NotImplementedException();
+        }
         private StridedInterval MakeInterval_ISub(Expression left, Constant right)
         {
             if (right == null)
@@ -138,7 +155,7 @@ namespace Reko.Scanning
         {
             return new SlicerResult
             {
-                Addresses = { addr },
+                SrcExpr = addr,
             };
         }
 
@@ -162,7 +179,7 @@ namespace Reko.Scanning
                 if (!wasLive)
                 {
                     // This assignment doesn't affect the end result.
-                    return new SlicerResult();
+                    return null;
                 }
                 //$TODO: create edges in graph. storages....
             }
@@ -172,25 +189,49 @@ namespace Reko.Scanning
                 new BitRange(
                     (short)id.Storage.BitAddress,
                     (short)(id.Storage.BitAddress + id.Storage.BitSize)));
-            this.JumpTableFormat = ExpressionReplacer.Replace(ass.Dst, ass.Src, JumpTableFormat);
+            this.JumpTableFormat = ExpressionReplacer.Replace(ass.Dst, se.SrcExpr, JumpTableFormat);
             this.assignLhs = null;
             return se;
         }
 
         public SlicerResult VisitBinaryExpression(BinaryExpression binExp, BitRange ctx)
         {
+            if (binExp.Operator == Operator.Xor)
+            {
+                if (cmp.Equals(binExp.Left, binExp.Right))
+                {
+                    var regDst = assignLhs as Identifier;
+                    var regHi = binExp.Left as Identifier;
+                    if (regDst != null && regHi != null &&
+                        regDst.Storage.OffsetOf(regHi.Storage) == 8)
+                    {
+                        // The 8086 didn't have a MOVZX instruction, so clearing the high byte of a
+                        // register BX was done by issuing XOR BH,BH
+                        var seXor = new SlicerResult
+                        {
+                            SrcExpr = new Cast(regDst.DataType, new Cast(PrimitiveType.Byte, assignLhs)),
+                            LiveExprs = new Dictionary<Expression, BitRange> { { assignLhs, new BitRange(0, 8) } }
+                        };
+                        return seXor;
+                    }
+                }
+            }
             var seLeft = binExp.Left.Accept(this, ctx);
             var seRight = binExp.Right.Accept(this, ctx);
             if (binExp.Operator == Operator.And)
             {
                 this.JumpTableIndexInterval = MakeInterval_And(binExp.Left, binExp.Right as Constant);
-                return null;
+                return new SlicerResult
+                {
+                    SrcExpr = binExp,
+                };
             }
             var se = new SlicerResult
             {
-                Addresses = seLeft.Addresses.Concat(seRight.Addresses).ToHashSet(),
                 LiveExprs = seLeft.LiveExprs.Concat(seRight.LiveExprs)
-                    .ToDictionary(k => k.Key, v => v.Value)
+                    .GroupBy(e => e.Key)
+                    .ToDictionary(k => k.Key, v => v.Max(vv => vv.Value)),
+                SrcExpr = binExp,
             };
             return se;
         }
@@ -230,14 +271,18 @@ namespace Reko.Scanning
             {
                 if (bin.Operator == Operator.ISub)
                 {
+                    var domLeft = DomainOf(bin.Left);
                     foreach (var live in Live.Keys)
                     {
-                        if (cmp.Equals(live, bin.Left))
+                        if (DomainOf(live) == domLeft)
                         {
                             if (cmp.Equals(assignLhs, this.JumpTableIndex))
                             {
                                 this.JumpTableIndexInterval = MakeInterval_ISub(bin.Left, bin.Right as Constant);
-                                return null;
+                                return new SlicerResult
+                                {
+                                    SrcExpr = cof,
+                                };
                             }
                         }
                     }
@@ -246,6 +291,7 @@ namespace Reko.Scanning
                     throw new NotImplementedException();
             }
             var se = cof.Expression.Accept(this, RangeOf(cof.Expression.DataType));
+            se.SrcExpr = cof;
             this.JumpTableIndex = cof.Expression;
             return se;
         }
@@ -253,16 +299,10 @@ namespace Reko.Scanning
 
         public SlicerResult VisitConstant(Constant c, BitRange ctx)
         {
-            var addr = host.MakeAddressFromConstant(c);
-            var addresses = new HashSet<Address>();
-            if (host.IsValidAddress(addr))
-            {
-                addresses.Add(addr);
-            }
             return new SlicerResult
             {
-                Addresses = addresses,
                 LiveExprs = new Dictionary<Expression, BitRange>(),
+                SrcExpr = c,
             };
         }
 
@@ -302,7 +342,8 @@ namespace Reko.Scanning
         {
             var sr = new SlicerResult
             {
-                LiveExprs = { { id, ctx } }
+                LiveExprs = { { id, ctx } },
+                SrcExpr = id,
             };
             return sr;
         }
@@ -397,7 +438,7 @@ namespace Reko.Scanning
         }
     }
 
-    public struct BitRange
+    public struct BitRange : IComparable<BitRange>
     {
         public readonly short begin;
         public readonly short end;
@@ -406,6 +447,11 @@ namespace Reko.Scanning
         {
             this.begin = begin;
             this.end = end;
+        }
+
+        public int CompareTo(BitRange that)
+        {
+            return (this.end - this.end) - (that.end - that.begin);
         }
 
         public override bool Equals(object obj)
@@ -444,7 +490,6 @@ namespace Reko.Scanning
     {
         // Live storages are involved in the computation of the jump destinations.
         public Dictionary<Expression, BitRange> LiveExprs = new Dictionary<Expression, BitRange>();
-
-        public HashSet<Address> Addresses = new HashSet<Address>();
+        public Expression SrcExpr;
     }
 }

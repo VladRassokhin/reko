@@ -37,7 +37,7 @@ namespace Reko.UnitTests.Scanning
     public class BackwardSlicerTests
     {
         private StorageBinder binder;
-        private FakeArchitecture arch;
+        private IProcessorArchitecture arch;
         private RtlBackwalkHost host;
         private Program program;
         private DirectedGraph<RtlBlock> graph;
@@ -266,6 +266,66 @@ namespace Reko.UnitTests.Scanning
             Assert.IsFalse(bwslc.Step());    // and
             Assert.AreEqual("Mem0[0x00123400 + (r1 & 0x00000007) * 0x00000004:word32]", bwslc.JumpTableFormat.ToString());
             Assert.AreEqual("1[0,7]", bwslc.JumpTableIndexInterval.ToString());
+        }
+
+        [Test]
+        [Category(Categories.UnitTests)]
+        public void Bwslc_x86_RegisterHack()
+        {
+            // In old x86 binaries we see this mechanism
+            // for zero extending a register.
+            arch = new Reko.Arch.X86.X86ArchitectureReal();
+            var bl = binder.EnsureRegister(arch.GetRegister("bl"));
+            var bh = binder.EnsureRegister(arch.GetRegister("bh"));
+            var bx = binder.EnsureRegister(arch.GetRegister("bx"));
+            var si = binder.EnsureRegister(arch.GetRegister("si"));
+            var SCZO = binder.EnsureFlagGroup(arch.GetFlagGroup("SCZO"));
+            var SZO = binder.EnsureFlagGroup(arch.GetFlagGroup("SZO"));
+            var c = binder.EnsureFlagGroup(arch.GetFlagGroup("C"));
+
+            var b = Given_Block(0x0100);
+            Given_Instrs(b, m =>
+            {
+                m.Assign(bl, m.LoadB(si));
+            });
+            Given_Instrs(b, m =>
+            { 
+                m.Assign(SCZO, m.Cond(m.ISub(bl, 2)));
+            });
+            Given_Instrs(b, m => {
+                m.Branch(new TestCondition(ConditionCode.UGT, SCZO), Address.Ptr16(0x120), RtlClass.ConditionalTransfer);
+            });
+
+            var b2 = Given_Block(0x200);
+            Given_Instrs(b2, m =>
+            {
+                m.Assign(bh, m.Xor(bh, bh));
+                m.Assign(SCZO, new ConditionOf(bh));
+            });
+            Given_Instrs(b2, m =>
+            {
+                m.Assign(bx, m.IAdd(bx, bx));
+                m.Assign(SCZO, new ConditionOf(bx));
+            });
+            Given_Instrs(b2, m => {
+                m.Goto(m.LoadW(m.IAdd(bx, 0x8400)));
+            });
+
+            graph.Nodes.Add(b);
+            graph.Nodes.Add(b2);
+            graph.AddEdge(b, b2);
+
+            var bwslc = new BackwardSlicer(b2, host);
+            Assert.IsTrue(bwslc.Start());   // indirect jump
+            Assert.IsTrue(bwslc.Step());    // assign flags
+            Assert.IsTrue(bwslc.Step());    // add bx,bx
+            Assert.IsTrue(bwslc.Step());    // assign flags
+            Assert.IsTrue(bwslc.Step());    // xor high-byte of bx
+            Assert.IsTrue(bwslc.Step());    // branch.
+            Assert.IsFalse(bwslc.Step());    // cmp.
+
+            Assert.AreEqual("Mem0[bx + bx + 0x8400:word16]", bwslc.JumpTableFormat.ToString());
+            Assert.AreEqual("1[0,2]", bwslc.JumpTableIndexInterval.ToString());
         }
     }
 }

@@ -185,5 +185,10 @@ namespace Reko.Core.Expressions
         {
             throw new NotImplementedException();
         }
+
+        public static Expression Replace(Expression dst, object srcExpr, Expression jumpTableFormat)
+        {
+            throw new NotImplementedException();
+        }
     }
 }
