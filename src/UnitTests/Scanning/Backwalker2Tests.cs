@@ -69,7 +69,7 @@ namespace Reko.UnitTests.Scanning
         public void BwDetermineVars_JmpIndirectMem()
         {
             var r2 = m.Reg32("r2", 2);
-            var xfer = new RtlGoto(m.LoadDw(r2), RtlClass.Transfer);
+            var xfer = new RtlGoto(m.Mem32(r2), RtlClass.Transfer);
             mr.ReplayAll();
 
             var bw = new Backwalker2<Block, Instruction>(host, xfer, eval);

@@ -300,7 +300,7 @@ namespace Reko.UnitTests.Scanning
 
             m.Assign(d1, m.IAdd(d1, d1));
             m.Assign(CVZNX, m.Cond(d1));
-            m.Assign(v82,m.LoadW(m.IAdd(m.Word32(0x001066A4), d1)));
+            m.Assign(v82,m.Mem16(m.IAdd(m.Word32(0x001066A4), d1)));
             m.Assign(d1, m.Dpb(d1, v82, 0));
             m.Assign(CVZN, m.Cond(v82));
             var block = m.CurrentBlock;

@@ -256,7 +256,7 @@ namespace Reko.UnitTests.Scanning
 
             var b = Given_Block(0x100);
             Given_Instrs(b, m => { m.Assign(r1, m.And(r1, 7)); m.Assign(cz, m.Cond(r1)); });
-            Given_Instrs(b, m => { m.Goto(m.LoadDw(m.IAdd(m.Word32(0x00123400), m.IMul(r1, 4)))); });
+            Given_Instrs(b, m => { m.Goto(m.Mem32(m.IAdd(m.Word32(0x00123400), m.IMul(r1, 4)))); });
 
             graph.Nodes.Add(b);
 
@@ -286,7 +286,7 @@ namespace Reko.UnitTests.Scanning
             var b = Given_Block(0x0100);
             Given_Instrs(b, m =>
             {
-                m.Assign(bl, m.LoadB(si));
+                m.Assign(bl, m.Mem8(si));
             });
             Given_Instrs(b, m =>
             { 
@@ -308,7 +308,7 @@ namespace Reko.UnitTests.Scanning
                 m.Assign(SCZO, new ConditionOf(bx));
             });
             Given_Instrs(b2, m => {
-                m.Goto(m.LoadW(m.IAdd(bx, 0x8400)));
+                m.Goto(m.Mem16(m.IAdd(bx, 0x8400)));
             });
 
             graph.Nodes.Add(b);

@@ -112,7 +112,7 @@ namespace Reko.UnitTests.Scanning
                 {
                     { r1, IVS(4, 0x2000, 0x2008) }
                 });
-            var vs = m.LoadDw(r1).Accept(vse);
+            var vs = m.Mem32(r1).Accept(vse);
             Assert.AreEqual("[0x00003000,0x00003028,0x00003008]", vs.ToString());
         }
 
