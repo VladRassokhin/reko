@@ -150,10 +150,8 @@ namespace Reko.UnitTests.Scanning
             Given_Instrs(b, m => { m.Goto(m.IAdd(r1, 0x00123400)); });
 
             var bwslc = new BackwardSlicer(host);
-            var start = bwslc.Start(b);
-            var step = bwslc.Step();
-            Assert.IsTrue(start);
-            Assert.IsTrue(step);
+            Assert.IsTrue(bwslc.Start(b));
+            Assert.IsTrue(bwslc.Step());
             Assert.AreEqual(1, bwslc.Live.Count);
             Assert.AreEqual("r2", bwslc.Live.First().Key.ToString());
         }

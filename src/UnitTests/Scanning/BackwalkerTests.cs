@@ -102,6 +102,11 @@ namespace Reko.UnitTests.Scanning
                 return block.Procedure.ControlGraph.Predecessors(block).ToArray()[0];
             }
 
+            public List<Block> GetPredecessors(Block block)
+            {
+                return block.Pred.ToList();
+            }
+
             public RegisterStorage GetSubregister(RegisterStorage reg, int off, int width)
             {
                 return arch.GetSubregister(reg, off, width);

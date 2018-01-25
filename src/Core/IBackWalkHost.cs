@@ -35,6 +35,7 @@ namespace Reko.Core
         Address MakeSegmentedAddress(Constant selector, Constant offset);
 
         TBlock GetSinglePredecessor(TBlock block);
+        List<TBlock> GetPredecessors(TBlock block);
 
         bool IsValidAddress(Address addr);
         RegisterStorage GetSubregister(RegisterStorage rIdx, int v1, int v2);

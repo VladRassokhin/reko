@@ -38,10 +38,12 @@ namespace Reko.Scanning
 
         private IBackWalkHost<RtlBlock, RtlInstruction> host;
         private SliceState state;
+        private WorkList<SliceState> worklist;
 
         public BackwardSlicer(IBackWalkHost<RtlBlock, RtlInstruction> host)
         {
             this.host = host;
+            this.worklist = new WorkList<SliceState>();
         }
 
         public Dictionary<Expression, BitRange> Live { get { return state.Live; } }
@@ -54,69 +56,53 @@ namespace Reko.Scanning
         {
             this.state = new SliceState(this, block);
 
-            DebugEx.PrintIf(trace.TraceInfo, "Bwslc: Starting at instruction {0}", state.instrs[state.iInstr]);
-            var sr = state.instrs[state.iInstr].Accept(state);
-            state.Live = sr.LiveExprs;
-            if (sr.LiveExprs.Count == 0)
+            if (state.Start())
             {
-                DebugEx.PrintIf(trace.TraceWarning, "  No indirect registers?");
+                worklist.Add(state);
+                return true;
+            }
+            else
+            {
                 return false;
             }
-            DebugEx.PrintIf(trace.TraceVerbose, "  live: {0}", DumpLive(state.Live));
-            return true;
         }
 
 
         public bool Step()
         {
-            --state.iInstr;
-            while (state.iInstr < 0)
+            SliceState state;
+            for (; ; )
             {
-                DebugEx.PrintIf(trace.TraceVerbose, "Reached beginning of block {0}", state.block.Address);
-                var pred = host.GetSinglePredecessor(state.block);    //$TODO: do all predecessors, add to queue.
-                if (pred == null)
-                {
-                    DebugEx.PrintIf(trace.TraceVerbose, "  No predecessors found, stopping");
+                if (!worklist.GetWorkItem(out state))
                     return false;
+                this.state = state;     //$TODO: get rid of this
+                if (!state.IsInBeginningOfBlock())
+                    break;
+
+                DebugEx.PrintIf(trace.TraceVerbose, "Reached beginning of block {0}", state.block.Address);
+                var preds = host.GetPredecessors(state.block);
+                if (preds.Count == 0)
+                {
+                    //$TODO: retire the state.
+                    DebugEx.PrintIf(trace.TraceVerbose, "  No predecessors found for block {0}", state.block.Address);
+                    return true;
                 }
-                this.state.addrSucc = state.block.Address;
-                state.block = pred;
-                state.instrs = SliceState.FlattenInstructions(state.block);
-                state.iInstr = state.instrs.Count - 1;
+                foreach (var pred in preds)
+                {
+                    SliceState pstate = state.CreateNew(pred, state.block.Address);
+                    worklist.Add(pstate);
+                }
             }
-            DebugEx.PrintIf(trace.TraceInfo, "Bwslc: Stepping to instruction {0}", state.instrs[state.iInstr]);
-            var sr = state.instrs[state.iInstr].Accept(state);
-            if (sr == null)
+            if (state.Step())
             {
-                // Instruction had no effect on live registers.
+                worklist.Add(state);
                 return true;
             }
-            foreach (var de in sr.LiveExprs)
+            else
             {
-                state.Live[de.Key] = de.Value;
-            }
-            if (sr.Stop)
-            {
-                DebugEx.PrintIf(trace.TraceVerbose, "  Was asked to stop, stopping.");
+                //$TODO: retire the state
                 return false;
             }
-            if (state.Live.Count == 0)
-            {
-                DebugEx.PrintIf(trace.TraceVerbose, "  No more live expressions, stopping.");
-                return false;
-            }
-            DebugEx.PrintIf(trace.TraceVerbose, "  live: {0}", DumpLive(state.Live));
-            return true;
-        }
-
-        private string DumpLive(Dictionary<Expression, BitRange> live)
-        {
-            return string.Format("{{ {0} }}",
-                string.Join(
-                    ",",
-                    live
-                        .OrderBy(l => l.Key.ToString())
-                        .Select(l => $"{{ {l.Key}, {l.Value} }}")));
         }
     }
 
@@ -137,17 +123,63 @@ namespace Reko.Scanning
         {
             this.slicer = slicer;
             this.cmp = new ExpressionValueComparer();
-            var instrs = FlattenInstructions(block);
-            var iLast = instrs.Count - 1;
             this.block = block;
-            this.instrs = instrs;
-            this.iInstr = iLast;
+            this.instrs = FlattenInstructions(block);
+            this.iInstr = instrs.Count - 1;
         }
 
         public Expression JumpTableFormat { get; private set; }  // an expression that computes the destination addresses.
 
         public Expression JumpTableIndex { get; private set; }    // an expression that tests the index 
         public StridedInterval JumpTableIndexInterval { get; private set; }    // an expression that tests the index 
+
+        public bool Start()
+        {
+            DebugEx.PrintIf(BackwardSlicer.trace.TraceInfo, "Bwslc: Starting at instruction {0}", instrs[iInstr]);
+            var sr = instrs[iInstr].Accept(this);
+            --this.iInstr;
+            this.Live = sr.LiveExprs;
+            if (sr.LiveExprs.Count == 0)
+            {
+                DebugEx.PrintIf(BackwardSlicer.trace.TraceWarning, "  No indirect registers?");
+                return false;
+            }
+            DebugEx.PrintIf(BackwardSlicer.trace.TraceVerbose, "  live: {0}", DumpLive(this.Live));
+            return true;
+        }
+
+        public bool Step()
+        {
+            DebugEx.PrintIf(BackwardSlicer.trace.TraceInfo, "Bwslc: Stepping to instruction {0}", this.instrs[this.iInstr]);
+            var sr = this.instrs[this.iInstr].Accept(this);
+            --this.iInstr;
+            if (sr == null)
+            {
+                // Instruction had no effect on live registers.
+                return true;
+            }
+            foreach (var de in sr.LiveExprs)
+            {
+                this.Live[de.Key] = de.Value;
+            }
+            if (sr.Stop)
+            {
+                DebugEx.PrintIf(BackwardSlicer.trace.TraceVerbose, "  Was asked to stop, stopping.");
+                return false;
+            }
+            if (this.Live.Count == 0)
+            {
+                DebugEx.PrintIf(BackwardSlicer.trace.TraceVerbose, "  No more live expressions, stopping.");
+                return false;
+            }
+            DebugEx.PrintIf(BackwardSlicer.trace.TraceVerbose, "  live: {0}", this.DumpLive(this.Live));
+            return true;
+        }
+
+        public bool IsInBeginningOfBlock()
+        {
+            return iInstr < 0;
+        }
 
         public static List<RtlInstruction> FlattenInstructions(RtlBlock b)
         {
@@ -483,6 +515,31 @@ namespace Reko.Scanning
         public SlicerResult VisitUnaryExpression(UnaryExpression unary, BitRange ctx)
         {
             throw new NotImplementedException();
+        }
+
+        private string DumpLive(Dictionary<Expression, BitRange> live)
+        {
+            return string.Format("{{ {0} }}",
+                string.Join(
+                    ",",
+                    live
+                        .OrderBy(l => l.Key.ToString())
+                        .Select(l => $"{{ {l.Key}, {l.Value} }}")));
+        }
+
+        public SliceState CreateNew(RtlBlock block, Address addrSucc)
+        {
+            var state = new SliceState(this.slicer, block)
+            {
+                JumpTableFormat = this.JumpTableFormat,
+                JumpTableIndex = this.JumpTableIndex,
+                JumpTableIndexInterval = this.JumpTableIndexInterval,
+                Live = new Dictionary<Expression, BitRange>(this.Live, this.Live.Comparer),
+                ccNext = this.ccNext,
+                invertCondition = this.invertCondition,
+                addrSucc = addrSucc
+            };
+            return state;
         }
     }
 

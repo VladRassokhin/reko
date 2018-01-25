@@ -192,6 +192,11 @@ namespace Reko.Scanning
             return block.Procedure.ControlGraph.Predecessors(block).FirstOrDefault();
         }
 
+        public List<Block> GetPredecessors(Block block)
+        {
+            return block.Pred.ToList();
+        }
+
         public AddressRange GetSinglePredecessorAddressRange(Address addr)
         {
             ImageMapBlock block = null;

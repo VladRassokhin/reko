@@ -68,6 +68,11 @@ namespace Reko.UnitTests.Scanning
             return p;
         }
 
+        public List<RtlBlock> GetPredecessors(RtlBlock block)
+        {
+            return graph.Predecessors(block).ToList();
+        }
+
         public AddressRange GetSinglePredecessorAddressRange(Address block)
         {
             throw new NotImplementedException();
