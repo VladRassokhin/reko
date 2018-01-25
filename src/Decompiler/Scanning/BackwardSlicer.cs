@@ -39,25 +39,19 @@ namespace Reko.Scanning
         private IBackWalkHost<RtlBlock, RtlInstruction> host;
         private SliceState state;
 
-
         public BackwardSlicer(IBackWalkHost<RtlBlock, RtlInstruction> host)
         {
             this.host = host;
-            this.Roots = new Dictionary<Expression, BitRange>();
         }
 
         public Dictionary<Expression, BitRange> Live { get { return state.Live; } }
-        public Dictionary<Expression, BitRange> Roots { get; private set; }
         public Expression JumpTableFormat { get { return state.JumpTableFormat; } }  // an expression that computes the destination addresses.
 
         public Expression JumpTableIndex { get { return state.JumpTableIndex; } }    // an expression that tests the index 
         public StridedInterval JumpTableIndexInterval { get { return state.JumpTableIndexInterval; } }    // an expression that tests the index 
 
-    
-
         public bool Start(RtlBlock block)
         {
-            this.Roots.Clear();
             this.state = new SliceState(this, block);
 
             DebugEx.PrintIf(trace.TraceInfo, "Bwslc: Starting at instruction {0}", state.instrs[state.iInstr]);
@@ -68,7 +62,6 @@ namespace Reko.Scanning
                 DebugEx.PrintIf(trace.TraceWarning, "  No indirect registers?");
                 return false;
             }
-            this.Roots = new Dictionary<Expression, BitRange>(sr.LiveExprs);
             DebugEx.PrintIf(trace.TraceVerbose, "  live: {0}", DumpLive(state.Live));
             return true;
         }
