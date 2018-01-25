@@ -403,7 +403,7 @@ namespace Reko.Scanning
                                 return new SlicerResult
                                 {
                                     SrcExpr = cof,
-                                    Stop = true,
+                                    Stop = Live.Count == 1,
                                 };
                             }
                         }

@@ -379,25 +379,20 @@ namespace Reko.UnitTests.Scanning
 
             var bwslc = new BackwardSlicer(host);
             Assert.IsTrue(bwslc.Start(b3));   // indirect jump
-            Assert.IsTrue(bwslc.Step());    // assign flags
-            Assert.IsTrue(bwslc.Step());    // assign flags
-            Assert.IsTrue(bwslc.Step());    // assign flags
-            Assert.IsTrue(bwslc.Step());    // assign flags
-            Assert.IsTrue(bwslc.Step());    // assign flags
-            Assert.IsTrue(bwslc.Step());    // assign flags
-            Assert.IsTrue(bwslc.Step());    // assign flags
-            Assert.IsTrue(bwslc.Step());    // assign flags
-            Assert.IsTrue(bwslc.Step());    // assign flags
-            Assert.IsTrue(bwslc.Step());    // assign flags
-            Assert.IsTrue(bwslc.Step());    // assign flags
-            Assert.IsTrue(bwslc.Step());    // assign flags
-            Assert.IsTrue(bwslc.Step());    // assign flags
-            Assert.IsTrue(bwslc.Step());    // assign flags
-            Assert.IsFalse(bwslc.Step());    // and
-            Assert.AreEqual("Mem0[0x00123400 + (r1 & 0x00000007) * 0x00000004:word32]", bwslc.JumpTableFormat.ToString());
-            Assert.AreEqual("1[0,7]", bwslc.JumpTableIndexInterval.ToString());
-
-
+            Assert.IsTrue(bwslc.Step());    
+            Assert.IsTrue(bwslc.Step());    
+            Assert.IsTrue(bwslc.Step());    
+            Assert.IsTrue(bwslc.Step());    
+            Assert.IsTrue(bwslc.Step());    
+            Assert.IsTrue(bwslc.Step());    
+            Assert.IsTrue(bwslc.Step());    
+            Assert.IsTrue(bwslc.Step());    
+            Assert.IsTrue(bwslc.Step());    
+            Assert.IsTrue(bwslc.Step());    
+            Assert.IsTrue(bwslc.Step());         
+            Assert.False(bwslc.Step());     // edx &= 3
+            Assert.AreEqual("Mem0[(edx & 0x00000003) * 0x00000004 + 0x00123400:word32]", bwslc.JumpTableFormat.ToString());
+            Assert.AreEqual("1[0,3]", bwslc.JumpTableIndexInterval.ToString());
         }
     }
 }
