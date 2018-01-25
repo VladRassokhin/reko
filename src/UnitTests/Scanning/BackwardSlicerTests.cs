@@ -136,7 +136,8 @@ namespace Reko.UnitTests.Scanning
             var bwslc = new BackwardSlicer(host);
             var start = bwslc.Start(b);
             Assert.IsTrue(start);
-            Assert.AreEqual(1, bwslc.Roots.Count);
+            Assert.AreEqual(1, bwslc.Live.Count);
+            Assert.AreEqual("r1", bwslc.Live.First().Key.ToString());
         }
 
         [Test]
