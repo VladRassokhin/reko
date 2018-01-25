@@ -168,7 +168,11 @@ namespace Reko.Core.Expressions
 
         public Expression VisitSegmentedAccess(SegmentedAccess access)
         {
-            throw new NotImplementedException();
+            if (cmp.Equals(access, original))
+                return replacement;
+            var seg = access.BasePointer.Accept(this);
+            var off = access.EffectiveAddress.Accept(this);
+            return new SegmentedAccess(access.MemoryId, seg, off, access.DataType);
         }
 
         public Expression VisitSlice(Slice slice)

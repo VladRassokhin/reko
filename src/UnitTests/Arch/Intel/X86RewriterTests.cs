@@ -441,6 +441,15 @@ namespace Reko.UnitTests.Arch.Intel
         }
 
         [Test]
+        public void X86Rw_JmpFarIndirect()
+        {
+            Run16bitTest(0xFF, 0x6F, 0x34);
+            AssertCode(
+                "0|T--|0C00:0000(3): 1 instructions",
+                "1|T--|goto Mem0[ds:bx + 0x0034:ptr32]");
+        }
+
+        [Test]
         public void X86rw_Jne()
         {
             Run16bitTest(m =>

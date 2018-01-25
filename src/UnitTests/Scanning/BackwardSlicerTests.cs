@@ -30,6 +30,7 @@ using System.Threading.Tasks;
 using Reko.UnitTests.Mocks;
 using Reko.Core.Expressions;
 using Reko.Core.Lib;
+using Reko.Core.Types;
 
 namespace Reko.UnitTests.Scanning
 {
@@ -75,6 +76,12 @@ namespace Reko.UnitTests.Scanning
         private RtlBlock Given_Block(uint uAddr)
         {
             var b = new RtlBlock(Address.Ptr32(uAddr), $"l{uAddr:X8}");
+            return b;
+        }
+
+        private RtlBlock Given_Block(ushort uSeg, ushort uOffset)
+        {
+            var b = new RtlBlock(Address.SegPtr(uSeg, uOffset), $"l{uSeg:X4}_{uOffset:X4}");
             return b;
         }
 
@@ -393,6 +400,44 @@ namespace Reko.UnitTests.Scanning
             Assert.False(bwslc.Step());     // edx &= 3
             Assert.AreEqual("Mem0[(edx & 0x00000003) * 0x00000004 + 0x00123400:word32]", bwslc.JumpTableFormat.ToString());
             Assert.AreEqual("1[0,3]", bwslc.JumpTableIndexInterval.ToString());
+        }
+
+        [Test]
+        public void Bwslc_SegmentedLoad()
+        {
+            arch = new Reko.Arch.X86.X86ArchitectureReal();
+            var cx = binder.EnsureRegister(arch.GetRegister("cx"));
+            var bx = binder.EnsureRegister(arch.GetRegister("bx"));
+            var ds = binder.EnsureRegister(arch.GetRegister("ds"));
+            var C = binder.EnsureFlagGroup(arch.GetFlagGroup("C"));
+            var SZO = binder.EnsureFlagGroup(arch.GetFlagGroup("SZO"));
+            var SCZO = binder.EnsureFlagGroup(arch.GetFlagGroup("SCZO"));
+
+            var b = Given_Block(0x0C00, 0x0100);
+            Given_Instrs(b, m => { m.Assign(SCZO, m.Cond(m.ISub(bx, 15))); });
+            Given_Instrs(b, m => { m.Branch(m.Test(ConditionCode.UGT, C), Address.SegPtr(0xC00, 0x200), RtlClass.ConditionalTransfer); });
+
+            var b2 = Given_Block(0x0C00, 0x0108);
+            Given_Instrs(b2, m => { m.Assign(bx, m.IAdd(bx, bx)); m.Assign(SCZO, m.Cond(bx)); });
+            //goto Mem0[ds: bx + 0x0034:ptr32]"
+            Given_Instrs(b2, m => { m.Goto(m.SegMem(PrimitiveType.Ptr32, ds, m.IAdd(bx, 34))); });
+
+            graph.Nodes.Add(b);
+            graph.Nodes.Add(b2);
+            graph.AddEdge(b, b2);
+
+            graph.Nodes.Add(b);
+
+            var bwslc = new BackwardSlicer(host);
+            Assert.IsTrue(bwslc.Start(b2));   // indirect jump
+            Assert.IsTrue(bwslc.Step());
+            Assert.IsTrue(bwslc.Step());
+            Assert.IsTrue(bwslc.Step());
+            Assert.IsFalse(bwslc.Step());
+
+            Assert.AreEqual("Mem0[ds:bx * 0x0002 + 0x0022:ptr32]", bwslc.JumpTableFormat.ToString());
+            Assert.AreEqual("1[0,F]", bwslc.JumpTableIndexInterval.ToString());
+
         }
     }
 }

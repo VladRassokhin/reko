@@ -532,7 +532,8 @@ namespace Reko.Scanning
 
         public SlicerResult VisitSegmentedAccess(SegmentedAccess access, BitRange ctx)
         {
-            throw new NotImplementedException();
+            var sr = access.EffectiveAddress.Accept(this, ctx);
+            return sr;
         }
 
         public SlicerResult VisitSideEffect(RtlSideEffect side)
