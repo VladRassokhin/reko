@@ -36,22 +36,24 @@ namespace Reko.Scanning
     {
         private static TraceSwitch trace = new TraceSwitch("BackwardSlicer", "Traces the backward slicer") { Level = TraceLevel.Verbose };
 
-        private RtlBlock block;
-        private int iInstr;
         private IBackWalkHost<RtlBlock, RtlInstruction> host;
-        private List<RtlInstruction> instrs;
-        private Address addrSucc;       // the block from which we traced.
-        private ConditionCode ccNext;   // The condition code that is used in a branch.
+        private SliceState state;
         private ExpressionValueComparer cmp;
-        private Expression assignLhs;   // current LHS
-        private bool invertCondition;
 
-        public BackwardSlicer(RtlBlock block, IBackWalkHost<RtlBlock, RtlInstruction> host)
+        class SliceState
         {
-            this.block = block;
+            public RtlBlock block;
+            public int iInstr;
+            public List<RtlInstruction> instrs;
+            public Address addrSucc;    // the block from which we traced.
+            public ConditionCode ccNext; // The condition code that is used in a branch.
+            public Expression assignLhs; // current LHS
+            public bool invertCondition;
+        }
+
+        public BackwardSlicer(IBackWalkHost<RtlBlock, RtlInstruction> host)
+        {
             this.host = host;
-            var b = block;
-            this.instrs = FlattenInstructions(b);
             this.Roots = new Dictionary<Expression, BitRange>();
             this.cmp = new ExpressionValueComparer();
         }
@@ -68,20 +70,27 @@ namespace Reko.Scanning
             return b.Instructions.SelectMany(rtlc => rtlc.Instructions).ToList();
         }
 
-        public bool Start()
+        public bool Start(RtlBlock block)
         {
             this.Roots.Clear();
+            var instrs = FlattenInstructions(block);
+            var iLast = instrs.Count - 1;
+            this.state = new SliceState
+            {
+                block = block,
+                instrs = instrs,
+                iInstr = iLast
+            };
 
-            this.iInstr = instrs.Count - 1;
-            DebugEx.PrintIf(trace.TraceInfo, "Bwslc: Starting at instruction {0}", instrs[iInstr]);
-            var sr = instrs[iInstr].Accept(this);
+            DebugEx.PrintIf(trace.TraceInfo, "Bwslc: Starting at instruction {0}", state.instrs[state.iInstr]);
+            var sr = state.instrs[state.iInstr].Accept(this);
+            this.Live = sr.LiveExprs;
             if (sr.LiveExprs.Count == 0)
             {
                 DebugEx.PrintIf(trace.TraceWarning, "  No indirect registers?");
                 return false;
             }
             this.Roots = new Dictionary<Expression, BitRange>(sr.LiveExprs);
-            this.Live = sr.LiveExprs;
             DebugEx.PrintIf(trace.TraceVerbose, "  live: {0}", DumpLive(Live));
             return true;
         }
@@ -89,23 +98,23 @@ namespace Reko.Scanning
 
         public bool Step()
         {
-            --iInstr;
-            while (iInstr < 0)
+            --state.iInstr;
+            while (state.iInstr < 0)
             {
-                DebugEx.PrintIf(trace.TraceVerbose, "Reached beginning of block {0}", block.Address);
-                var pred = host.GetSinglePredecessor(block);    //$TODO: do all predecessors, add to queue.
+                DebugEx.PrintIf(trace.TraceVerbose, "Reached beginning of block {0}", state.block.Address);
+                var pred = host.GetSinglePredecessor(state.block);    //$TODO: do all predecessors, add to queue.
                 if (pred == null)
                 {
                     DebugEx.PrintIf(trace.TraceVerbose, "  No predecessors found, stopping");
                     return false;
                 }
-                this.addrSucc = block.Address;
-                block = pred;
-                instrs = FlattenInstructions(block);
-                iInstr = instrs.Count - 1;
+                this.state.addrSucc = state.block.Address;
+                state.block = pred;
+                state.instrs = FlattenInstructions(state.block);
+                state.iInstr = state.instrs.Count - 1;
             }
-            DebugEx.PrintIf(trace.TraceInfo, "Bwslc: Stepping to instruction {0}", instrs[iInstr]);
-            var sr = instrs[iInstr].Accept(this);
+            DebugEx.PrintIf(trace.TraceInfo, "Bwslc: Stepping to instruction {0}", state.instrs[state.iInstr]);
+            var sr = state.instrs[state.iInstr].Accept(this);
             if (sr == null)
             {
                 // Instruction had no effect on live registers.
@@ -152,8 +161,8 @@ namespace Reko.Scanning
         {
             if (right == null)
                 return StridedInterval.Empty;
-            var cc = ccNext;
-            if (invertCondition)
+            var cc = state.ccNext;
+            if (state.invertCondition)
                 cc = cc.Invert();
             switch (cc)
             {
@@ -214,14 +223,14 @@ namespace Reko.Scanning
                 }
                 //$TODO: create edges in graph. storages....
             }
-            this.assignLhs = ass.Dst;
+            this.state.assignLhs = ass.Dst;
             var se = ass.Src.Accept(
                 this,
                 new BitRange(
                     (short)id.Storage.BitAddress,
                     (short)(id.Storage.BitAddress + id.Storage.BitSize)));
             this.JumpTableFormat = ExpressionReplacer.Replace(ass.Dst, se.SrcExpr, JumpTableFormat);
-            this.assignLhs = null;
+            this.state.assignLhs = null;
             return se;
         }
 
@@ -231,7 +240,7 @@ namespace Reko.Scanning
             {
                 if (cmp.Equals(binExp.Left, binExp.Right))
                 {
-                    var regDst = assignLhs as Identifier;
+                    var regDst = state.assignLhs as Identifier;
                     var regHi = binExp.Left as Identifier;
                     if (regDst != null && regHi != null &&
                         regDst.Storage.OffsetOf(regHi.Storage) == 8)
@@ -240,8 +249,8 @@ namespace Reko.Scanning
                         // register BX was done by issuing XOR BH,BH
                         var seXor = new SlicerResult
                         {
-                            SrcExpr = new Cast(regDst.DataType, new Cast(PrimitiveType.Byte, assignLhs)),
-                            LiveExprs = new Dictionary<Expression, BitRange> { { assignLhs, new BitRange(0, 8) } }
+                            SrcExpr = new Cast(regDst.DataType, new Cast(PrimitiveType.Byte, state.assignLhs)),
+                            LiveExprs = new Dictionary<Expression, BitRange> { { state.assignLhs, new BitRange(0, 8) } }
                         };
                         return seXor;
                     }
@@ -273,9 +282,9 @@ namespace Reko.Scanning
             var addrTarget = branch.Target as Address;
             if (addrTarget == null)
                 throw new NotImplementedException();    //#REVIEW: do we ever see this?
-            if (addrSucc != addrTarget)
+            if (state.addrSucc != addrTarget)
             {
-                this.invertCondition = true;
+                this.state.invertCondition = true;
             }
             return se;
         }
@@ -307,7 +316,7 @@ namespace Reko.Scanning
                     {
                         if (DomainOf(live) == domLeft)
                         {
-                            if (cmp.Equals(assignLhs, this.JumpTableIndex))
+                            if (cmp.Equals(state.assignLhs, this.JumpTableIndex))
                             {
                                 this.JumpTableIndexInterval = MakeInterval_ISub(bin.Left, bin.Right as Constant);
                                 DebugEx.PrintIf(trace.TraceVerbose, "  Found range of {0}: {1}", live, JumpTableIndexInterval);
@@ -459,7 +468,7 @@ namespace Reko.Scanning
         public SlicerResult VisitTestCondition(TestCondition tc, BitRange ctx)
         {
             var se = tc.Expression.Accept(this, RangeOf(tc.Expression.DataType));
-            this.ccNext = tc.ConditionCode;
+            this.state.ccNext = tc.ConditionCode;
             this.JumpTableIndex = tc.Expression;
             return se;
         }
