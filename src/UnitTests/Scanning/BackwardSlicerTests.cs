@@ -327,5 +327,81 @@ namespace Reko.UnitTests.Scanning
             Assert.AreEqual("Mem0[bx + bx + 0x8400:word16]", bwslc.JumpTableFormat.ToString());
             Assert.AreEqual("1[0,2]", bwslc.JumpTableIndexInterval.ToString());
         }
+
+        [Test(Description = "test case discovered by @smx-smx. The rep movsd should " +
+                            "have no effect on the indirect jump.")]
+         
+        public void Bwslc_RepMovsd()
+        {
+            // Original i386 code:
+            // shr ecx,02
+            // and edx,03
+            // cmp ecx,08
+            // jc 00002000
+            // rep movsd 
+            // jmp dword ptr[007862E8 + edx * 4]
+
+            arch = new Reko.Arch.X86.X86ArchitectureReal();
+            var ecx = binder.EnsureRegister(arch.GetRegister("ecx"));
+            var edx = binder.EnsureRegister(arch.GetRegister("edx"));
+            var esi = binder.EnsureRegister(arch.GetRegister("esi"));
+            var edi = binder.EnsureRegister(arch.GetRegister("edi"));
+            var C = binder.EnsureFlagGroup(arch.GetFlagGroup("C"));
+            var SZO = binder.EnsureFlagGroup(arch.GetFlagGroup("SZO"));
+            var SCZO = binder.EnsureFlagGroup(arch.GetFlagGroup("SCZO"));
+            var tmp = binder.CreateTemporary(ecx.DataType);
+
+            var b = Given_Block(0x1000);
+            Given_Instrs(b, m => { m.Assign(ecx, m.Shr(ecx, 2)); m.Assign(SCZO, m.Cond(ecx)); });
+            Given_Instrs(b, m => { m.Assign(edx, m.And(edx, 3)); m.Assign(SZO, m.Cond(edx)); m.Assign(C, Constant.False()); });
+            Given_Instrs(b, m => { m.Assign(SCZO, m.Cond(m.ISub(ecx, 8))); });
+            Given_Instrs(b, m => { m.Branch(m.Test(ConditionCode.ULT, C), Address.Ptr32(0x2000), RtlClass.ConditionalTransfer); });
+
+            var b2 = Given_Block(0x1008);
+            Given_Instrs(b2, m => {
+                m.BranchInMiddleOfInstruction(m.Eq0(ecx), Address.Ptr32(0x1010), RtlClass.ConditionalTransfer);
+                m.Assign(tmp, m.Mem32(esi));
+                m.Assign(m.Mem32(edi), tmp);
+                m.Assign(esi, m.IAdd(esi, 4));
+                m.Assign(edi, m.IAdd(edi, 4));
+                m.Assign(ecx, m.ISub(ecx, 1));
+                m.Goto(Address.Ptr32(0x1008));
+            });
+
+            var b3 = Given_Block(0x1010);
+
+            Given_Instrs(b, m => {
+                m.Goto(m.Mem32(m.IAdd(m.IMul(edx, 4), 0x00123400)));
+            });
+
+            graph.Nodes.Add(b);
+            graph.Nodes.Add(b2);
+            graph.Nodes.Add(b3);
+            graph.AddEdge(b, b2);
+            graph.AddEdge(b2, b3);
+            graph.AddEdge(b2, b2);
+
+            var bwslc = new BackwardSlicer(b, host);
+            Assert.IsTrue(bwslc.Start());   // indirect jump
+            Assert.IsTrue(bwslc.Step());    // assign flags
+            Assert.IsTrue(bwslc.Step());    // assign flags
+            Assert.IsTrue(bwslc.Step());    // assign flags
+            Assert.IsTrue(bwslc.Step());    // assign flags
+            Assert.IsTrue(bwslc.Step());    // assign flags
+            Assert.IsTrue(bwslc.Step());    // assign flags
+            Assert.IsTrue(bwslc.Step());    // assign flags
+            Assert.IsTrue(bwslc.Step());    // assign flags
+            Assert.IsTrue(bwslc.Step());    // assign flags
+            Assert.IsTrue(bwslc.Step());    // assign flags
+            Assert.IsTrue(bwslc.Step());    // assign flags
+            Assert.IsTrue(bwslc.Step());    // assign flags
+            Assert.IsTrue(bwslc.Step());    // assign flags
+            Assert.IsTrue(bwslc.Step());    // assign flags
+            Assert.IsFalse(bwslc.Step());    // and
+            Assert.AreEqual("Mem0[0x00123400 + (r1 & 0x00000007) * 0x00000004:word32]", bwslc.JumpTableFormat.ToString());
+            Assert.AreEqual("1[0,7]", bwslc.JumpTableIndexInterval.ToString());
+
+
+        }
     }
 }
