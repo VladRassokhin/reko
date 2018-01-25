@@ -39,11 +39,13 @@ namespace Reko.Scanning
         private IBackWalkHost<RtlBlock, RtlInstruction> host;
         private SliceState state;
         private WorkList<SliceState> worklist;
+        private HashSet<RtlBlock> visited;
 
         public BackwardSlicer(IBackWalkHost<RtlBlock, RtlInstruction> host)
         {
             this.host = host;
             this.worklist = new WorkList<SliceState>();
+            this.visited = new HashSet<RtlBlock>();
         }
 
         public Dictionary<Expression, BitRange> Live { get { return state.Live; } }
@@ -55,6 +57,7 @@ namespace Reko.Scanning
         public bool Start(RtlBlock block)
         {
             this.state = new SliceState(this, block);
+            visited.Add(block);
 
             if (state.Start())
             {
@@ -89,8 +92,13 @@ namespace Reko.Scanning
                 }
                 foreach (var pred in preds)
                 {
-                    SliceState pstate = state.CreateNew(pred, state.block.Address);
-                    worklist.Add(pstate);
+                    if (!visited.Contains(pred))
+                    {
+                        visited.Add(pred);
+                        SliceState pstate = state.CreateNew(pred, state.block.Address);
+                        worklist.Add(pstate);
+                        DebugEx.PrintIf(trace.TraceVerbose, "  Added block {0} to worklist", pred.Address);
+                    }
                 }
             }
             if (state.Step())
@@ -138,6 +146,7 @@ namespace Reko.Scanning
             DebugEx.PrintIf(BackwardSlicer.trace.TraceInfo, "Bwslc: Starting at instruction {0}", instrs[iInstr]);
             var sr = instrs[iInstr].Accept(this);
             --this.iInstr;
+
             this.Live = sr.LiveExprs;
             if (sr.LiveExprs.Count == 0)
             {
