@@ -34,6 +34,8 @@ namespace Reko.Scanning
 {
     public class BackwardSlicer : RtlInstructionVisitor<SlicerResult>, ExpressionVisitor<SlicerResult, BitRange>
     {
+        private static TraceSwitch trace = new TraceSwitch("BackwardSlicer", "Traces the backward slicer") { Level = TraceLevel.Verbose };
+
         private RtlBlock block;
         private int iInstr;
         private IBackWalkHost<RtlBlock, RtlInstruction> host;
@@ -71,46 +73,70 @@ namespace Reko.Scanning
             this.Roots.Clear();
 
             this.iInstr = instrs.Count - 1;
+            DebugEx.PrintIf(trace.TraceInfo, "Bwslc: Starting at instruction {0}", instrs[iInstr]);
             var sr = instrs[iInstr].Accept(this);
             if (sr.LiveExprs.Count == 0)
             {
-                Debug.Print("No indirect registers?");
+                DebugEx.PrintIf(trace.TraceWarning, "  No indirect registers?");
                 return false;
             }
             this.Roots = new Dictionary<Expression, BitRange>(sr.LiveExprs);
             this.Live = sr.LiveExprs;
+            DebugEx.PrintIf(trace.TraceVerbose, "  live: {0}", DumpLive(Live));
             return true;
         }
+
 
         public bool Step()
         {
             --iInstr;
             while (iInstr < 0)
             {
+                DebugEx.PrintIf(trace.TraceVerbose, "Reached beginning of block {0}", block.Address);
                 var pred = host.GetSinglePredecessor(block);    //$TODO: do all predecessors, add to queue.
                 if (pred == null)
+                {
+                    DebugEx.PrintIf(trace.TraceVerbose, "  No predecessors found, stopping");
                     return false;
+                }
                 this.addrSucc = block.Address;
                 block = pred;
                 instrs = FlattenInstructions(block);
                 iInstr = instrs.Count - 1;
             }
+            DebugEx.PrintIf(trace.TraceInfo, "Bwslc: Stepping to instruction {0}", instrs[iInstr]);
             var sr = instrs[iInstr].Accept(this);
             if (sr == null)
             {
                 // Instruction had no effect on live registers.
                 return true;
             }
-            if (sr.LiveExprs.Count == 0)
-            {
-                // No more live expressions.
-                return false;
-            }
             foreach (var de in sr.LiveExprs)
             {
                 this.Live[de.Key] = de.Value;
             }
+            if (sr.Stop)
+            {
+                DebugEx.PrintIf(trace.TraceVerbose, "  Was asked to stop, stopping.");
+                return false;
+            }
+            if (Live.Count == 0)
+            {
+                DebugEx.PrintIf(trace.TraceVerbose, "  No more live expressions, stopping.");
+                return false;
+            }
+            DebugEx.PrintIf(trace.TraceVerbose, "  live: {0}", DumpLive(Live));
             return true;
+        }
+
+        private string DumpLive(Dictionary<Expression, BitRange> live)
+        {
+            return string.Format("{{ {0} }}",
+                string.Join(
+                    ",",
+                    live
+                        .OrderBy(l => l.Key.ToString())
+                        .Select(l => $"{{ {l.Key}, {l.Value} }}")));
         }
 
         private StorageDomain DomainOf(Expression e)
@@ -172,6 +198,11 @@ namespace Reko.Scanning
         public SlicerResult VisitAssignment(RtlAssignment ass)
         {
             var id = ass.Dst as Identifier;
+            if (id == null)
+            {
+                // Ignore writes to memory.
+                return null;
+            }
             bool wasLive = false;
             if (id != null)
             {
@@ -279,9 +310,11 @@ namespace Reko.Scanning
                             if (cmp.Equals(assignLhs, this.JumpTableIndex))
                             {
                                 this.JumpTableIndexInterval = MakeInterval_ISub(bin.Left, bin.Right as Constant);
+                                DebugEx.PrintIf(trace.TraceVerbose, "  Found range of {0}: {1}", live, JumpTableIndexInterval);
                                 return new SlicerResult
                                 {
                                     SrcExpr = cof,
+                                    Stop = true,
                                 };
                             }
                         }
@@ -295,7 +328,6 @@ namespace Reko.Scanning
             this.JumpTableIndex = cof.Expression;
             return se;
         }
-      
 
         public SlicerResult VisitConstant(Constant c, BitRange ctx)
         {
@@ -491,5 +523,7 @@ namespace Reko.Scanning
         // Live storages are involved in the computation of the jump destinations.
         public Dictionary<Expression, BitRange> LiveExprs = new Dictionary<Expression, BitRange>();
         public Expression SrcExpr;
+
+        public bool Stop { get; internal set; }
     }
 }

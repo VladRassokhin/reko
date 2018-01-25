@@ -370,7 +370,7 @@ namespace Reko.UnitTests.Scanning
 
             var b3 = Given_Block(0x1010);
 
-            Given_Instrs(b, m => {
+            Given_Instrs(b3, m => {
                 m.Goto(m.Mem32(m.IAdd(m.IMul(edx, 4), 0x00123400)));
             });
 
@@ -381,7 +381,7 @@ namespace Reko.UnitTests.Scanning
             graph.AddEdge(b2, b3);
             graph.AddEdge(b2, b2);
 
-            var bwslc = new BackwardSlicer(b, host);
+            var bwslc = new BackwardSlicer(b3, host);
             Assert.IsTrue(bwslc.Start());   // indirect jump
             Assert.IsTrue(bwslc.Step());    // assign flags
             Assert.IsTrue(bwslc.Step());    // assign flags
