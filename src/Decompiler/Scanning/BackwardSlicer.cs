@@ -36,7 +36,7 @@ namespace Reko.Scanning
     {
         internal static TraceSwitch trace = new TraceSwitch("BackwardSlicer", "Traces the backward slicer") { Level = TraceLevel.Verbose };
 
-        private IBackWalkHost<RtlBlock, RtlInstruction> host;
+        internal IBackWalkHost<RtlBlock, RtlInstruction> host;
         private SliceState state;
         private WorkList<SliceState> worklist;
         private HashSet<RtlBlock> visited;
@@ -88,6 +88,8 @@ namespace Reko.Scanning
                 {
                     //$TODO: retire the state.
                     DebugEx.PrintIf(trace.TraceVerbose, "  No predecessors found for block {0}", state.block.Address);
+                    DebugEx.PrintIf(BackwardSlicer.trace.TraceVerbose, "  index: {0} ({1})", this.JumpTableIndex, this.JumpTableIndexInterval);
+                    DebugEx.PrintIf(BackwardSlicer.trace.TraceVerbose, "  expr:  {0}", this.JumpTableFormat);
                     return true;
                 }
                 foreach (var pred in preds)
@@ -174,11 +176,15 @@ namespace Reko.Scanning
             if (sr.Stop)
             {
                 DebugEx.PrintIf(BackwardSlicer.trace.TraceVerbose, "  Was asked to stop, stopping.");
+                DebugEx.PrintIf(BackwardSlicer.trace.TraceVerbose, "  index: {0} ({1})", this.JumpTableIndex, this.JumpTableIndexInterval);
+                DebugEx.PrintIf(BackwardSlicer.trace.TraceVerbose, "  expr:  {0}", this.JumpTableFormat);
                 return false;
             }
             if (this.Live.Count == 0)
             {
                 DebugEx.PrintIf(BackwardSlicer.trace.TraceVerbose, "  No more live expressions, stopping.");
+                DebugEx.PrintIf(BackwardSlicer.trace.TraceVerbose, "  index: {0} ({1})", this.JumpTableIndex, this.JumpTableIndexInterval);
+                DebugEx.PrintIf(BackwardSlicer.trace.TraceVerbose, "  expr:  {0}", this.JumpTableFormat);
                 return false;
             }
             DebugEx.PrintIf(BackwardSlicer.trace.TraceVerbose, "  live: {0}", this.DumpLive(this.Live));
@@ -215,6 +221,7 @@ namespace Reko.Scanning
             switch (cc)
             {
             case ConditionCode.ULE: return StridedInterval.Create(1, 0, right.ToInt64());
+            case ConditionCode.UGE: return StridedInterval.Create(1, right.ToInt64(), long.MaxValue);
             default: throw new NotImplementedException($"Unimplemented condition code {cc}.");
             }
         }
@@ -260,24 +267,28 @@ namespace Reko.Scanning
                 // Ignore writes to memory.
                 return null;
             }
-            bool wasLive = false;
+            this.assignLhs = ass.Dst;
             if (id != null)
             {
-                wasLive = Live.Remove(id);
-                if (!wasLive)
+                var deadRegs = Live.Keys.OfType<Identifier>().Where(i => i.Storage.Domain == id.Storage.Domain).ToList();
+                if (deadRegs.Count == 0)
                 {
                     // This assignment doesn't affect the end result.
                     return null;
                 }
+                foreach (var deadReg in deadRegs)
+                {
+                    Live.Remove(deadReg);
+                }
+                assignLhs = deadRegs.First();
                 //$TODO: create edges in graph. storages....
             }
-            this.assignLhs = ass.Dst;
             var se = ass.Src.Accept(
                 this,
                 new BitRange(
                     (short)id.Storage.BitAddress,
                     (short)(id.Storage.BitAddress + id.Storage.BitSize)));
-            this.JumpTableFormat = ExpressionReplacer.Replace(ass.Dst, se.SrcExpr, JumpTableFormat);
+            this.JumpTableFormat = ExpressionReplacer.Replace(assignLhs, se.SrcExpr, JumpTableFormat);
             this.assignLhs = null;
             return se;
         }
@@ -288,9 +299,11 @@ namespace Reko.Scanning
             {
                 if (cmp.Equals(binExp.Left, binExp.Right))
                 {
+                    // XOR r,r clears a register. is it part of a live register?
                     var regDst = assignLhs as Identifier;
                     var regHi = binExp.Left as Identifier;
-                    if (regDst != null && regHi != null &&
+                    if (regHi != null && regDst != null &&
+                        DomainOf(regDst) == regHi.Storage.Domain &&
                         regDst.Storage.OffsetOf(regHi.Storage) == 8)
                     {
                         // The 8086 didn't have a MOVZX instruction, so clearing the high byte of a
@@ -308,11 +321,29 @@ namespace Reko.Scanning
             var seRight = binExp.Right.Accept(this, ctx);
             if (binExp.Operator == Operator.And)
             {
+                this.JumpTableIndex = binExp.Left;
                 this.JumpTableIndexInterval = MakeInterval_And(binExp.Left, binExp.Right as Constant);
                 return new SlicerResult
                 {
                     SrcExpr = binExp,
+                    Stop = true,
                 };
+            }
+            else if (binExp.Operator == Operator.IAdd)
+            {
+                if (cmp.Equals(binExp.Left, binExp.Right))
+                {
+                    // Rxx + Rxx => Rxx * 2
+                    return new SlicerResult
+                    {
+                        LiveExprs = seLeft.LiveExprs,
+                        SrcExpr = new BinaryExpression(
+                            Operator.IMul,
+                            binExp.DataType,
+                            binExp.Left,
+                            Constant.Word(binExp.DataType.Size, 2))
+                    };
+                }
             }
             var se = new SlicerResult
             {
@@ -366,6 +397,7 @@ namespace Reko.Scanning
                         {
                             if (cmp.Equals(this.assignLhs, this.JumpTableIndex))
                             {
+                                this.JumpTableIndex = bin.Left;
                                 this.JumpTableIndexInterval = MakeInterval_ISub(bin.Left, bin.Right as Constant);
                                 DebugEx.PrintIf(BackwardSlicer.trace.TraceVerbose, "  Found range of {0}: {1}", live, JumpTableIndexInterval);
                                 return new SlicerResult

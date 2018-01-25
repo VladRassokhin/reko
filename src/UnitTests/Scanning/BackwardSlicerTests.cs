@@ -321,13 +321,12 @@ namespace Reko.UnitTests.Scanning
             Assert.IsTrue(bwslc.Step());    // branch.
             Assert.IsFalse(bwslc.Step());    // cmp.
 
-            Assert.AreEqual("Mem0[bx + bx + 0x8400:word16]", bwslc.JumpTableFormat.ToString());
+            Assert.AreEqual("Mem0[(word16) (byte) bx * 0x0002 + 0x8400:word16]", bwslc.JumpTableFormat.ToString());
             Assert.AreEqual("1[0,2]", bwslc.JumpTableIndexInterval.ToString());
         }
 
         [Test(Description = "test case discovered by @smx-smx. The rep movsd should " +
                             "have no effect on the indirect jump.")]
-         
         public void Bwslc_RepMovsd()
         {
             // Original i386 code:
